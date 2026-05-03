@@ -1,74 +1,79 @@
 // ==UserScript==
-// @name         Fraction Leader Responses (GitHub Version)
+// @name         Leader Helper (Universal)
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Быстрые ответы для лидеров фракций
-// @author       Твое Имя
-// @match        https://forum.gtadom.com/*
-// @match        https://forum.radmir.com/*
+// @version      1.2
+// @description  Плавающие кнопки ответов
+// @author       Leader
+// @match        *://*.gtadom.com/*
+// @match        *://*.radmir.com/*
+// @match        *://*.radmir-hosting.ru/*
 // @grant        none
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // Конфигурация ответов
     const responses = [
-        {
-            title: "✅ Одобрено",
-            text: "[CENTER][COLOR=rgb(65, 168, 95)][B]ОДОБРЕНО[/B][/COLOR]\n\nС уважением, лидер организации.\nСвяжитесь со мной в спец. связи для дальнейших инструкций.[/CENTER]"
-        },
-        {
-            title: "❌ Отказ",
-            text: "[CENTER][COLOR=rgb(184, 49, 47)][B]ОТКАЗАНО[/B][/COLOR]\n\nПричина: Несоответствие критериям / Слабая биография.[/CENTER]"
-        },
-        {
-            title: "⏳ На рассмотрении",
-            text: "[CENTER][COLOR=rgb(243, 121, 52)][B]НА РАССМОТРЕНИИ[/B][/COLOR]\n\nОжидайте ответа в течение 24 часов.[/CENTER]"
-        }
+        { title: "✅ Одобрить", text: "[CENTER][B][COLOR=rgb(65, 168, 95)]ОДОБРЕНО[/COLOR][/B]\nС уважением, лидер организации.[/CENTER]" },
+        { title: "❌ Отказать", text: "[CENTER][B][COLOR=rgb(184, 49, 47)]ОТКАЗАНО[/COLOR][/B]\nПричина: [/CENTER]" },
+        { title: "⏳ Рассмотрение", text: "[CENTER][B][COLOR=rgb(243, 121, 52)]НА РАССМОТРЕНИИ[/COLOR][/B][/CENTER]" }
     ];
 
     function insertText(text) {
-        const editor = document.querySelector('.ck-editor__editable') || document.querySelector('textarea');
+        // Пробуем найти любое поле ввода (текстареа или редактор)
+        const editor = document.querySelector('.ck-editor__editable') || 
+                       document.querySelector('.fr-element') || 
+                       document.querySelector('textarea.js-editor');
+        
         if (editor) {
-            // Если на форуме используется CKEditor (современные движки)
-            if (editor.ckeditorInstance) {
-                editor.ckeditorInstance.setData(text);
+            // Для современных редакторов XenForo
+            if (editor.getAttribute('contenteditable') === 'true') {
+                editor.focus();
+                document.execCommand('insertText', false, text);
             } else {
-                // Если обычная textarea
                 editor.value += text;
             }
+        } else {
+            alert('Поле ввода не найдено. Кликните мышкой в поле ответа и попробуйте снова.');
         }
     }
 
-    function createButtons() {
-        const toolbar = document.querySelector('.ck-toolbar__items') || document.querySelector('.buttonGroup');
-        if (!toolbar) return;
+    // Создаем плавающее меню
+    const menu = document.createElement('div');
+    menu.style = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 10000;
+        background: #2c3e50;
+        padding: 10px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    `;
 
-        const container = document.createElement('div');
-        container.style.padding = '10px';
-        container.style.display = 'flex';
-        container.style.gap = '5px';
-        container.style.flexWrap = 'wrap';
-        container.id = 'leader-helper-panel';
+    responses.forEach(res => {
+        const btn = document.createElement('button');
+        btn.innerHTML = res.title;
+        btn.style = `
+            cursor: pointer;
+            padding: 8px 12px;
+            background: #34495e;
+            color: white;
+            border: 1px solid #5d6d7e;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+            transition: 0.2s;
+        `;
+        btn.onmouseover = () => btn.style.background = '#48c9b0';
+        btn.onmouseout = () => btn.style.background = '#34495e';
+        
+        btn.onclick = () => insertText(res.text);
+        menu.appendChild(btn);
+    });
 
-        responses.forEach(res => {
-            const btn = document.createElement('button');
-            btn.innerHTML = res.title;
-            btn.type = 'button';
-            btn.style.padding = '5px 10px';
-            btn.style.cursor = 'pointer';
-            btn.style.border = '1px solid #ccc';
-            btn.style.borderRadius = '4px';
-            btn.style.background = '#f5f5f5';
-
-            btn.onclick = () => insertText(res.text);
-            container.appendChild(btn);
-        });
-
-        toolbar.parentNode.insertBefore(container, toolbar);
-    }
-
-    // Запуск через небольшую паузу, чтобы редактор успел прогрузиться
-    setTimeout(createButtons, 2000);
+    document.body.appendChild(menu);
 })();
