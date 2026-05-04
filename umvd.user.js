@@ -1,11 +1,10 @@
 // ==UserScript==
-// @name         UMVD Helper v1 AI | Black Russia
+// @name         UMVD Helper v2 AI | Black Russia
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Панель УМВД с AI-помощником и автоматизацией ответов
-// @author       Сергей Грозный / Adaptive AI
+// @version      2.0
+// @description  Профессиональный помощник для сотрудников УМВД. AI-анализ, красивые шаблоны и гибкие настройки.
+// @author       Adaptive AI
 // @match        https://forum.blackrussia.online/*
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=blackrussia.online
 // @grant        GM_xmlhttpRequest
 // @connect      api.groq.com
 // ==/UserScript==
@@ -13,273 +12,198 @@
 (function () {
     'use strict';
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // КОНФИГУРАЦИЯ УМВД
-    // ═══════════════════════════════════════════════════════════════════════
-
     const CONFIG = {
-        storage: {
-            settings: 'umvd_v1_s',
-            collapse: 'umvd_v1_c',
-            aiKey: 'umvd_v1_ai'
-        },
-        defaults: {
-            settings: { nick: 'Иван Иванов', rank: 'Полковник УМВД' },
-            collapse: { umvd: false, promo: true, complaint: true },
-            aiKey: ''
+        colors: {
+            main: '#1e90ff',
+            bg: '#0f172a',
+            card: '#1e293b',
+            text: '#f8fafc'
         },
         ranks: [
-            {id:2, name:'Сержант',         short:'Сержант [2]'       },
-            {id:3, name:'Старший сержант', short:'Ст. Сержант [3]'    },
-            {id:4, name:'Прапорщик',       short:'Прапорщик [4]'     },
-            {id:5, name:'Лейтенант',       short:'Лейтенант [5]'     },
-            {id:6, name:'Старший лейтенант', short:'Ст. Лейтенант [6]'},
-            {id:7, name:'Капитан',         short:'Капитан [7]'       },
-            {id:8, name:'Майор',           short:'Майор [8]'         }
-        ],
-        quickReasons: {
-            transfer_no:      ['Не полная форма заявления', 'Отсутствует разрешение руководства', 'Скриншотам более 3-х дней'],
-            restore_no:       ['Прошло более 30 дней с момента ухода', 'Причина ухода — грубое нарушение (ОЧС)', 'Некорректные данные'],
-            contract_no:      ['Низкий уровень законопослушности', 'Отсутствует военный билет', 'Опечатки в личных данных'],
-            promo_no:         ['Не выполнены пункты системы повышения', 'Отсутствует фиксация проделанной работы'],
-            complaint_no:     ['Недостаточно доказательств', 'Действия сотрудника правомерны', 'Нарушена форма подачи'],
-            complaint_partial:['Сотрудник получит выговор, часть претензий отклонена', 'Проведена профилактическая беседа']
-        },
-        colors: {
-            main: 'rgb(30, 144, 255)' // Полицейский синий
-        }
+            "Рядовой [1]", "Сержант [2]", "Ст. Сержант [3]", "Прапорщик [4]",
+            "Лейтенант [5]", "Ст. Лейтенант [6]", "Капитан [7]", "Майор [8]",
+            "Подполковник [9]", "Полковник [10]"
+        ]
+    };
+
+    let settings = JSON.parse(localStorage.getItem('umvd_settings')) || {
+        nick: 'Ivan_Ivanov',
+        rank: 'Полковник',
+        aiKey: ''
+    };
+
+    const saveSettings = (data) => {
+        settings = { ...settings, ...data };
+        localStorage.setItem('umvd_settings', JSON.stringify(settings));
     };
 
     // ═══════════════════════════════════════════════════════════════════════
-    // УТИЛИТЫ
+    // ШАБЛОНЫ
     // ═══════════════════════════════════════════════════════════════════════
 
-    const Utils = {
-        storage: {
-            load: (key, fallback) => {
-                try {
-                    const raw = localStorage.getItem(key);
-                    return raw ? {...fallback, ...JSON.parse(raw)} : {...fallback};
-                } catch { return {...fallback}; }
-            },
-            save: (key, value) => {
-                try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
-            }
-        },
-        date: {
-            genDocNum: () => {
-                const year = new Date().getFullYear();
-                const rand = Math.floor(1000 + Math.random() * 9000);
-                return `${year}-${rand}`;
-            },
-            getMSK: () => {
-                const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
-                const dd = String(d.getDate()).padStart(2,'0');
-                const mm = String(d.getMonth()+1).padStart(2,'0');
-                return `${dd}.${mm}.${d.getFullYear()}`;
-            }
+    const generateTemplate = (type, targetNick, reason = '') => {
+        const date = new Date().toLocaleDateString('ru-RU');
+        const num = Math.floor(Math.random() * 9000) + 1000;
+        const header = `[CENTER][COLOR=${CONFIG.colors.main}]══════════════════════════════════════════════════[/COLOR]
+[B][FONT=times new roman][SIZE=5][COLOR=${CONFIG.colors.main}]МИНИСТЕРСТВО ВНУТРЕННИХ ДЕЛ[/COLOR][/SIZE][/FONT][/B]
+[FONT=times new roman][SIZE=4]УПРАВЛЕНИЕ МВД ПО НИЖЕГОРОДСКОЙ ОБЛАСТИ
+г. Южный[/SIZE][/FONT]
+[COLOR=${CONFIG.colors.main}]══════════════════════════════════════════════════[/COLOR][/CENTER]
+
+[FONT=times new roman][SIZE=3][COLOR=rgb(128,128,128)]Исх. № [B]У-${num}[/B] от [B]${date}[/B][/COLOR][/SIZE][/FONT]
+[HR][/HR]
+Здравия желаю, [B]${targetNick}[/B]!
+`;
+
+        const footer = `\n[HR][/HR]
+[RIGHT][FONT=times new roman][SIZE=4]С уважением,
+[B]${settings.rank} УМВД ${settings.nick}[/B][/SIZE][/FONT][/RIGHT]`;
+
+        let body = '';
+        if (type === 'ok') {
+            body = `Ваше заявление было рассмотрено руководством УМВД.
+Вердикт: [COLOR=rgb(0,255,0)][B]ОДОБРЕНО[/B][/COLOR].
+Ждем вас в отделе полиции г. Южный в рабочее время.`;
+        } else {
+            body = `Ваше заявление было рассмотрено руководством УМВД.
+Вердикт: [COLOR=rgb(255,0,0)][B]ОТКАЗАНО[/B][/COLOR].
+Причина: [B]${reason || 'Несоответствие критериям / Опечатки'}[/B].`;
         }
+
+        return header + body + footer;
     };
 
     // ═══════════════════════════════════════════════════════════════════════
-    // AI ПОМОЩНИК (УМВД STYLE)
+    // UI СТИЛИ
     // ═══════════════════════════════════════════════════════════════════════
 
-    class AIAssistant {
-        constructor(apiKey) {
-            this.apiKey = apiKey;
-            this.model = 'llama-3.3-70b-versatile';
-        }
+    const injectStyles = () => {
+        const style = document.createElement('style');
+        style.textContent = `
+            #umvd-root { font-family: 'Segoe UI', Roboto, sans-serif; color: ${CONFIG.colors.text}; }
+            #umvd-fab { position: fixed; bottom: 25px; right: 25px; width: 65px; height: 65px; background: ${CONFIG.colors.main}; 
+                        border-radius: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; 
+                        box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 9999; transition: 0.3s; font-size: 30px; }
+            #umvd-fab:hover { transform: scale(1.1) rotate(10deg); }
 
-        async analyze(applicationText) {
-            if (!this.apiKey) throw new Error('API ключ не настроен');
-
-            const prompt = `Ты — сотрудник отдела кадров УМВД г. Южный в игре Black Russia.
-ЗАЯВЛЕНИЕ: ${applicationText}
-
-КРИТЕРИИ ДЛЯ ПОЛИЦИИ:
-1. ОБРАЩЕНИЕ: Должно быть к "Начальнику УМВД" или "Полковнику".
-2. НИК: Формат Nick_Name.
-3. ДОКУМЕНТЫ: Должны быть ссылки на паспорт, медкарту, лицензии (B, оружие) и ВОЕННЫЙ БИЛЕТ (обязательно для УМВД).
-4. ЗАКОНОПОСЛУШНОСТЬ: 10+.
-
-Ответь строго в JSON:
-{"decision": "approve" или "reject", "reason": "краткая причина на русском", "confidence": 0-100, "extracted_nick": "ник или null"}`;
-
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: 'POST',
-                    url: 'https://api.groq.com/openai/v1/chat/completions',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.apiKey}` },
-                    data: JSON.stringify({
-                        model: this.model,
-                        messages: [{ role: 'user', content: prompt }],
-                        temperature: 0.2
-                    }),
-                    onload: (res) => {
-                        try {
-                            const data = JSON.parse(res.responseText);
-                            const text = data.choices[0].message.content;
-                            resolve(JSON.parse(text.match(/\{[\s\S]*\}/)[0]));
-                        } catch (e) { reject(new Error('Ошибка обработки AI')); }
-                    },
-                    onerror: () => reject(new Error('Сеть недоступна'))
-                });
-            });
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ШАБЛОНЫ ОТВЕТОВ УМВД
-    // ═══════════════════════════════════════════════════════════════════════
-
-    class TemplateEngine {
-        constructor(nick, rank) {
-            this.nick = nick;
-            this.rank = rank;
-        }
-
-        header(title) {
-            const num = Utils.date.genDocNum();
-            const date = Utils.date.getMSK();
-            const blue = CONFIG.colors.main;
-            return (
-                `[CENTER][COLOR=${blue}]══════════════════════════════════════════════════[/COLOR]\n` +
-                `[B][FONT=times new roman][SIZE=5][COLOR=${blue}]МИНИСТЕРСТВО ВНУТРЕННИХ ДЕЛ[/COLOR][/SIZE][/FONT][/B]\n` +
-                `[FONT=times new roman][SIZE=4]УПРАВЛЕНИЕ МВД ПО НИЖЕГОРОДСКОЙ ОБЛАСТИ\n` +
-                `г. Южный[/SIZE][/FONT]\n` +
-                `[COLOR=${blue}]══════════════════════════════════════════════════[/COLOR][/CENTER]\n` +
-                `[FONT=times new roman][SIZE=3][COLOR=rgb(128,128,128)]Исх. № [B]${num}[/B] от [B]${date}[/B][/COLOR][/SIZE][/FONT]\n` +
-                `[HR][/HR]\n` +
-                `[FONT=times new roman][SIZE=4]{NICK}\n`
-            );
-        }
-
-        footer() {
-            return (
-                `[HR][/HR]\n` +
-                `[RIGHT][FONT=times new roman][SIZE=4]Начальник отдела кадров УМВД\n` +
-                `[B]${this.rank} ${this.nick}[/B][/SIZE][/FONT][/RIGHT]`
-            );
-        }
-
-        table(rows) { return `\n[TABLE]\n${rows.join('\n')}\n[/TABLE]\n`; }
-        row(l, v) { return `[TR][TD][B]${l}[/B][/TD][TD]${v}[/TD][/TR]`; }
-
-        build(type, params = {}) {
-            let body = '';
-            const statusOk = '[COLOR=rgb(0,255,0)][ICODE]ОДОБРЕНО[/ICODE][/COLOR]';
-            const statusNo = '[COLOR=rgb(255,0,0)][ICODE]ОТКАЗАНО[/ICODE][/COLOR]';
-
-            switch(type) {
-                case 'transfer_ok':
-                    body = this.table([this.row('Тип','Перевод в УМВД'), this.row('Вердикт',statusOk)]) + 
-                           'Ваше заявление на перевод в органы внутренних дел было [B]одобрено[/B]. Ждем вас в отделении г. Южный.';
-                    break;
-                case 'transfer_no':
-                    body = this.table([this.row('Тип','Перевод в УМВД'), this.row('Вердикт',statusNo), this.row('Причина', params.reason)]) + 
-                           'Вам [B]отказано[/B] в переводе. Ознакомьтесь с причиной выше.';
-                    break;
-                case 'promo_ok':
-                    body = this.table([this.row('Рапорт','На повышение'), this.row('Звание',params.rank.short), this.row('Вердикт',statusOk)]) +
-                           'Поздравляю с присвоением нового специального звания!';
-                    break;
-                case 'complaint_ok':
-                    body = this.table([this.row('Жалоба','На сотрудника'), this.row('Статус','[B]Удовлетворена[/B]'), this.row('Меры', params.punishment)]) +
-                           `В отношении сотрудника ${params.staff} будут приняты дисциплинарные меры.`;
-                    break;
-                default: 
-                    body = 'Документ находится на стадии рассмотрения.';
-            }
-            return this.header() + body + '\n' + this.footer();
-        }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // БАЗОВАЯ ЛОГИКА (ГЛАВНЫЙ КЛАСС)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    class UMVDHelper {
-        constructor() {
-            this.settings = Utils.storage.load(CONFIG.storage.settings, CONFIG.defaults.settings);
-            this.aiKey = localStorage.getItem(CONFIG.storage.aiKey) || '';
-            this.engine = new TemplateEngine(this.settings.nick, this.settings.rank);
-            this.ai = new AIAssistant(this.aiKey);
-            this.init();
-        }
-
-        init() {
-            this.injectStyles();
-            this.createUI();
-        }
-
-        injectStyles() {
-            const css = document.createElement('style');
-            css.textContent = `
-                #umvd-fab { position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:${CONFIG.colors.main}; 
-                            color:white; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:10000; font-size:30px; box-shadow:0 4px 15px rgba(0,0,0,0.4); }
-                #umvd-panel { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:400px; background:#1c1c1c; border:2px solid ${CONFIG.colors.main};
-                              border-radius:15px; z-index:10001; display:none; flex-direction:column; color:white; font-family:sans-serif; overflow:hidden; }
-                .umvd-header { background:${CONFIG.colors.main}; padding:15px; font-weight:bold; text-align:center; position:relative; }
-                .umvd-body { padding:15px; max-height:500px; overflow-y:auto; }
-                .umvd-btn { width:100%; padding:10px; margin-bottom:8px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; transition:0.2s; }
-                .btn-ok { background:#28a745; color:white; }
-                .btn-no { background:#dc3545; color:white; }
-                .umvd-input { width:100%; padding:8px; margin-bottom:10px; background:#333; border:1px solid #555; color:white; border-radius:5px; box-sizing:border-box; }
-                .active { display:flex !important; }
-            `;
-            document.head.appendChild(css);
-        }
-
-        createUI() {
-            const fab = document.createElement('div');
-            fab.id = 'umvd-fab'; fab.innerHTML = '🚔';
-            document.body.appendChild(fab);
-
-            const panel = document.createElement('div');
-            panel.id = 'umvd-panel';
-            panel.innerHTML = `
-                <div class="umvd-header">УМВД HELPER AI <span id="umvd-close" style="position:absolute; right:15px; cursor:pointer;">✕</span></div>
-                <div class="umvd-body">
-                    <label style="font-size:12px; color:#aaa;">НИК ПОДАЮЩЕГО:</label>
-                    <input type="text" id="umvd-tgt" class="umvd-input" placeholder="Ivan_Ivanov">
-                    
-                    <button class="umvd-btn btn-ok" id="btn-trans-ok">✅ ПЕРЕВОД: ОДОБРИТЬ</button>
-                    <button class="umvd-btn btn-no" id="btn-trans-no">❌ ПЕРЕВОД: ОТКАЗ</button>
-                    <hr style="border:0.5px solid #444;">
-                    <button class="umvd-btn" style="background:#555; color:white;" id="btn-ai-check">🤖 AI АНАЛИЗ ЗАЯВКИ</button>
-                    
-                    <div style="margin-top:10px; font-size:11px; color:#888; text-align:center;">
-                        Настройки: ${this.settings.nick} | ${this.settings.rank}
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(panel);
-
-            fab.onclick = () => panel.classList.toggle('active');
-            document.getElementById('umvd-close').onclick = () => panel.classList.remove('active');
-
-            // Пример обработки кнопки
-            document.getElementById('btn-trans-ok').onclick = () => this.sendResponse('transfer_ok');
-        }
-
-        sendResponse(type) {
-            const nick = document.getElementById('umvd-tgt').value;
-            if (!nick) return alert('Введите ник игрока!');
+            #umvd-main { position: fixed; bottom: 100px; right: 25px; width: 350px; background: ${CONFIG.colors.bg}; 
+                         border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); display: none; flex-direction: column; 
+                         box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 9999; overflow: hidden; backdrop-filter: blur(10px); }
             
-            const text = this.engine.build(type, { nick });
-            const editor = document.querySelector('.fr-element');
-            if (editor) {
-                editor.focus();
-                document.execCommand('insertText', false, text);
-                document.getElementById('umvd-panel').classList.remove('active');
-            } else {
-                alert('Поле ответа не найдено на странице!');
-            }
-        }
-    }
+            .umvd-head { background: ${CONFIG.colors.main}; padding: 20px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; }
+            .umvd-content { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+            
+            .umvd-input { background: ${CONFIG.colors.card}; border: 1px solid rgba(255,255,255,0.1); padding: 12px; 
+                          border-radius: 12px; color: white; outline: none; transition: 0.2s; }
+            .umvd-input:focus { border-color: ${CONFIG.colors.main}; }
+            
+            .umvd-btn { padding: 12px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+            .btn-blue { background: ${CONFIG.colors.main}; color: white; }
+            .btn-green { background: #10b981; color: white; }
+            .btn-red { background: #ef4444; color: white; }
+            .umvd-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+            .umvd-btn:active { transform: translateY(0); }
 
-    // Запуск
-    new UMVDHelper();
+            .umvd-tab { display: none; flex-direction: column; gap: 12px; }
+            .active-tab { display: flex; }
+            
+            .tab-trigger { font-size: 12px; cursor: pointer; opacity: 0.7; }
+            .tab-trigger:hover { opacity: 1; }
+        `;
+        document.head.appendChild(style);
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // СОЗДАНИЕ ИНТЕРФЕЙСА
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const createUI = () => {
+        const root = document.createElement('div');
+        root.id = 'umvd-root';
+        root.innerHTML = `
+            <div id="umvd-fab">🚔</div>
+            <div id="umvd-main">
+                <div class="umvd-head">
+                    <span>УМВД HELPER v2</span>
+                    <span class="tab-trigger" id="go-settings">⚙️ Настройки</span>
+                </div>
+                
+                <div class="umvd-content active-tab" id="tab-work">
+                    <input type="text" id="target-nick" class="umvd-input" placeholder="Ник игрока (Ivan_Ivanov)">
+                    <button class="umvd-btn btn-green" id="action-ok">✅ Одобрить</button>
+                    <button class="umvd-btn btn-red" id="action-no">❌ Отказать</button>
+                    <hr style="opacity: 0.1">
+                    <button class="umvd-btn btn-blue" id="action-ai">🤖 AI Анализ (Groq)</button>
+                </div>
+
+                <div class="umvd-content" id="tab-settings">
+                    <label style="font-size: 11px; opacity: 0.6">ВАШ НИК (Nick_Name):</label>
+                    <input type="text" id="set-nick" class="umvd-input" value="${settings.nick}">
+                    
+                    <label style="font-size: 11px; opacity: 0.6">ВАШЕ ЗВАНИЕ:</label>
+                    <select id="set-rank" class="umvd-input">
+                        ${CONFIG.ranks.map(r => `<option value="${r}" ${settings.rank === r ? 'selected' : ''}>${r}</option>`).join('')}
+                    </select>
+
+                    <label style="font-size: 11px; opacity: 0.6">GROQ API KEY:</label>
+                    <input type="password" id="set-key" class="umvd-input" value="${settings.aiKey}" placeholder="gsk_...">
+                    
+                    <button class="umvd-btn btn-blue" id="save-settings">💾 Сохранить и выйти</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(root);
+
+        // Логика переключения
+        const fab = document.getElementById('umvd-fab');
+        const main = document.getElementById('umvd-main');
+        const workTab = document.getElementById('tab-work');
+        const setTab = document.getElementById('tab-settings');
+
+        fab.onclick = () => main.style.display = main.style.display === 'flex' ? 'none' : 'flex';
+
+        document.getElementById('go-settings').onclick = () => {
+            workTab.classList.remove('active-tab');
+            setTab.classList.add('active-tab');
+        };
+
+        document.getElementById('save-settings').onclick = () => {
+            saveSettings({
+                nick: document.getElementById('set-nick').value,
+                rank: document.getElementById('set-rank').value,
+                aiKey: document.getElementById('set-key').value
+            });
+            setTab.classList.remove('active-tab');
+            workTab.classList.add('active-tab');
+            alert('Настройки сохранены!');
+        };
+
+        // Кнопки действий
+        document.getElementById('action-ok').onclick = () => insertText('ok');
+        document.getElementById('action-no').onclick = () => {
+            const reason = prompt('Введите причину отказа:');
+            if (reason) insertText('no', reason);
+        };
+    };
+
+    const insertText = (type, reason = '') => {
+        const target = document.getElementById('target-nick').value;
+        if (!target) return alert('Сначала введите ник игрока!');
+        
+        const template = generateTemplate(type, target, reason);
+        const editor = document.querySelector('.fr-element.fr-view');
+        
+        if (editor) {
+            editor.focus();
+            document.execCommand('insertText', false, template);
+            document.getElementById('umvd-main').style.display = 'none';
+        } else {
+            alert('Не найдено поле ввода на странице. Вы точно в теме форума?');
+        }
+    };
+
+    // Инициализация
+    injectStyles();
+    createUI();
 
 })();
