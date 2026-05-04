@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Final Station
+// @name         UMVD Rivera Lime - Elite Edition
 // @namespace    https://forum.blackrussia.online
-// @version      19.0
-// @description  Таймер 24ч с пульсацией, счетчик нормы и расчет рангов
+// @version      18.0
+// @description  Счетчик нормы, расчет рангов и таймер Lime
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -15,7 +15,7 @@
     const RANKS = ["Рядовой", "Сержант", "Старший Сержант", "Прапорщик", "Лейтенант", "Старший Лейтенант", "Капитан", "Майор", "Подполковник", "Полковник"];
     const REASONS = ["Отсутствие военного билета.", "Скриншоты без /time.", "Скриншотам более 3-х дней.", "Не по форме / нечитаемый шрифт.", "Вы в ЧС фракции.", "Низкая законопослушность.", "Опечатка в паспорте (NonRP)."];
 
-    let sessionWork = 0;
+    let sessionWork = 0; // Счетчик проверенных за сессию
 
     const getSetting = (key, def) => localStorage.getItem(key) || def;
 
@@ -28,7 +28,8 @@
         const lastPostTimeElement = document.querySelector('.message:last-child .u-dt');
         if (!lastPostTimeElement) return null;
         const lastPostTimestamp = new Date(lastPostTimeElement.getAttribute('data-time') * 1000);
-        return Math.floor((new Date() - lastPostTimestamp) / (1000 * 60 * 60));
+        const now = new Date();
+        return Math.floor((now - lastPostTimestamp) / (1000 * 60 * 60));
     }
 
     async function quoteAndAppend(text) {
@@ -42,12 +43,15 @@
                 editor.focus();
                 const styledText = `[CENTER][FONT=Times New Roman]${text}[/FONT][/CENTER]`;
                 document.execCommand('insertHTML', false, styledText);
-                sessionWork++;
-                if(document.getElementById('riv-norm-counter')) {
-                    document.getElementById('riv-norm-counter').innerText = `Норма за сессию: ${sessionWork}`;
-                }
+                sessionWork++; // Увеличиваем счетчик после вставки
+                updateCounter();
             }
         }, 500);
+    }
+
+    function updateCounter() {
+        const counterEl = document.getElementById('riv-norm-counter');
+        if(counterEl) counterEl.innerText = `Норма за сессию: ${sessionWork}`;
     }
 
     function showModal({ title, message, options = null, isTextArea = false, isConfirm = false, isSettings = false, inputPlaceholder = "" }) {
@@ -108,39 +112,25 @@
         panel.id = 'rivera-panel';
         
         const idleHours = getTopicIdleTime();
-        let timerStyle = "";
-        let timerText = "";
-
-        if (idleHours !== null) {
-            if (idleHours >= 20) {
-                // Пункт 6: Пульсация при приближении к 24 часам
-                timerStyle = "background:#7f1d1d; color:#fff; animation: pulse 1.5s infinite; border: 1px solid #f87171;";
-                timerText = `ВНИМАНИЕ: БЕЗ ОТВЕТА ${idleHours}ч.!`;
-            } else {
-                timerStyle = "background:#334155; color:#94a3b8;";
-                timerText = `Без ответа: ${idleHours}ч.`;
-            }
-        }
-
-        const styleSheet = document.createElement("style");
-        styleSheet.innerText = "@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }";
-        document.head.appendChild(styleSheet);
+        const timerHtml = idleHours !== null && idleHours >= 24 
+            ? `<div style="background:#7f1d1d; color:#f87171; font-size:9px; padding:4px; border-radius:5px; margin-bottom:5px; text-align:center; font-weight:bold;">БЕЗ ОТВЕТА: ${idleHours}ч.</div>` 
+            : '';
 
         panel.style = "position:fixed; top:50%; right:15px; transform:translateY(-50%); width:180px; background:rgba(30,30,39,0.95); backdrop-filter:blur(10px); border-radius:15px; z-index:10000; border:1px solid #444; padding:12px; display:flex; flex-direction:column; gap:6px; box-shadow:0 10px 30px rgba(0,0,0,0.5);";
         
         panel.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:5px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:5px; margin-bottom:5px;">
                 <div style="color:#fff; font-size:10px; font-weight:bold;">УМВД LIME</div>
-                <div id="close-panel" style="color:#64748b; cursor:pointer; font-size:18px;">&times;</div>
+                <div id="close-panel" style="color:#64748b; cursor:pointer; font-size:16px;">&times;</div>
             </div>
-            ${timerText ? `<div style="${timerStyle} font-size:9px; padding:5px; border-radius:5px; text-align:center; font-weight:bold; margin-top:3px;">${timerText}</div>` : ''}
+            ${timerHtml}
             <button class="r-btn" data-t="ok" style="background:#166534;">ОДОБРИТЬ</button>
             <button class="r-btn" data-t="no" style="background:#7f1d1d;">ОТКАЗАТЬ</button>
             <button class="r-btn" data-t="trans" style="background:#1e40af;">ПЕРЕВОД (-1)</button>
             <button class="r-btn" data-t="rest" style="background:#6b21a8;">ВОССТАНОВ. (-2)</button>
             <button class="r-btn" data-t="res" style="background:#374151;">ИТОГИ</button>
-            <div id="riv-norm-counter" style="color:#94a3b8; font-size:9px; text-align:center; margin-top:5px; border-top:1px solid #333; padding-top:5px;">Норма за сессию: 0</div>
-            <button id="r-set" style="background:none; border:1px solid #444; color:#64748b; font-size:10px; padding:4px; border-radius:5px; cursor:pointer; margin-top:2px;">⚙️ НАСТРОЙКИ</button>
+            <div id="riv-norm-counter" style="color:#94a3b8; font-size:9px; text-align:center; margin-top:5px;">Норма за сессию: 0</div>
+            <button id="r-set" style="background:none; border:1px solid #444; color:#64748b; font-size:10px; padding:4px; border-radius:5px; cursor:pointer; margin-top:5px;">⚙️ НАСТРОЙКИ</button>
         `;
 
         const openBtn = document.createElement('div');
@@ -156,7 +146,9 @@
         document.getElementById('r-set').onclick = () => showModal({ title: 'ПЕРСОНАЛИЗАЦИЯ', isSettings: true });
 
         document.querySelectorAll('.r-btn').forEach(btn => {
-            btn.style.cssText += "color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-size:10px; font-weight:bold;";
+            btn.style.cssText += "color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-size:10px; font-weight:bold; transition:0.2s;";
+            btn.onmouseover = () => btn.style.opacity = "0.8";
+            btn.onmouseout = () => btn.style.opacity = "1";
             btn.onclick = async () => {
                 const type = btn.dataset.t;
                 const nick = getSetting('riv_nick', 'Nick');
@@ -167,26 +159,29 @@
 
                 if (type === 'res') {
                     const a = await showModal({ title: 'ИТОГИ', message: 'Одобренные ники:', isTextArea: true });
-                    const r = await showModal({ title: 'ИТОГИ', message: 'Отказанные:', isTextArea: true });
+                    const r = await showModal({ title: 'ИТОГИ', message: 'Отказанные (Ник - Причина):', isTextArea: true });
                     body = `[B][SIZE=5][COLOR=rgb(30, 144, 255)]ИТОГИ ПРОВЕРКИ УМВД[/COLOR][/SIZE][/B]<br><br>[LEFT][COLOR=rgb(34, 197, 94)]ОДОБРЕНО:[/COLOR]<br>${a || '-'}<br><br>[COLOR=rgb(239, 68, 68)]ОТКАЗАНО:[/COLOR]<br>${r || '-'}[/LEFT]`;
                 } else {
                     const pNick = await showModal({ title: 'НИК ИГРОКА', inputPlaceholder: 'Nick_Name' });
                     if(!pNick) return;
                     body = `Здравия желаю, уважаемый(-ая) [B]${pNick}[/B].<br><br>`;
+                    
                     if (type === 'ok') body += `Ваше заявление рассмотрено. Вердикт: [B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО[/COLOR][/B].`;
                     else if (type === 'no') {
-                        const rsn = await showModal({ title: 'ПРИЧИНА', options: [...REASONS, "Своя причина..."] });
+                        const rsn = await showModal({ title: 'ПРИЧИНА ОТКАЗА', options: [...REASONS, "Своя причина..."] });
                         const finalRsn = (rsn === "Своя причина...") ? await showModal({ title: 'СВОЯ ПРИЧИНА', isTextArea: true }) : rsn;
                         body += `Ваше заявление рассмотрено. Вердикт: [B][COLOR=rgb(239, 68, 68)]ОТКАЗАНО[/COLOR][/B].<br>Причина: ${finalRsn}.`;
                     }
                     else if (type === 'trans') {
-                        const curR = await showModal({ title: 'РАНГ', message: 'Ваш текущий ранг (число):' });
-                        body += `Ваше заявление на перевод рассмотрено. Вердикт: [B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО[/COLOR][/B] на [B]${curR - 1}[/B] ранг.`;
+                        const curRank = await showModal({ title: 'РАНГ', message: 'Ваш текущий ранг (в цифрах):' });
+                        body += `Ваше заявление на перевод рассмотрено. Вердикт: [B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО[/COLOR][/B] на [B]${curRank - 1}[/B] ранг.`;
                     }
-                    else if (type === 'rest') body += `Ваше заявление на восстановление одобрено (с потерей 2-х рангов).`;
+                    else if (type === 'rest') {
+                        body += `Ваше заявление на восстановление рассмотрено. Вердикт: [B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО[/COLOR][/B] (с потерей 2-х рангов согласно уставу).`;
+                    }
                 }
 
-                const s = await showModal({ title: 'ПОДПИСЬ', message: 'Добавить штамп?', isConfirm: true });
+                const s = await showModal({ title: 'ПОДПИСЬ', message: 'Прикрепить личный штамп?', isConfirm: true });
                 if(s) body += `<br><br>С уважением, ${rank} УМВД — ${nick}.<br>[I]${sign}[/I]<br>[SIZE=1][COLOR=grey]Время: ${date} | LIME SERVER[/COLOR][/SIZE]`;
                 quoteAndAppend(body);
             };
