@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Final Helper
+// @name         UMVD Rivera Glass Edition
 // @namespace    https://forum.blackrussia.online
-// @version      11.0
-// @description  Да/Нет выбор подписи и исправленные итоги кандидатов
+// @version      13.0
+// @description  Новый дизайн справа, стекло, авто-ник и персонализация
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -12,6 +12,9 @@
     'use strict';
 
     const RANKS = ["Рядовой", "Сержант", "Старший Сержант", "Прапорщик", "Лейтенант", "Старший Лейтенант", "Капитан", "Майор", "Подполковник", "Полковник"];
+
+    // Инициализация настроек
+    const getSetting = (key, def) => localStorage.getItem(key) || def;
 
     async function quoteAndAppend(text) {
         const quoteBtn = document.querySelector('.message:last-child [data-xf-click="quote"]') || 
@@ -28,35 +31,81 @@
         }, 500);
     }
 
-    function showModal({ title, message, inputPlaceholder, isTextArea = false, isConfirm = false }) {
+    function detectNick() {
+        const lastMessage = document.querySelector('.message:last-child .message-inner .message-body .bbWrapper');
+        if (lastMessage) {
+            const text = lastMessage.innerText;
+            const match = text.match(/([A-Z][a-z]+_[A-Z][a-z]+)/);
+            return match ? match[0] : '';
+        }
+        return '';
+    }
+
+    function showModal({ title, message, inputPlaceholder, isTextArea = false, isConfirm = false, isSettings = false }) {
         return new Promise((resolve) => {
             const modalId = 'rivera-modal';
-            const html = `
-                <div id="${modalId}" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 20000; display: flex; align-items: center; justify-content: center; font-family: sans-serif;">
-                    <div style="background: #2d2d3a; width: 380px; border-radius: 12px; border: 1px solid #40404f; overflow: hidden; animation: rivSlide 0.3s ease;">
-                        <div style="padding: 16px; border-bottom: 1px solid #3a3a4a; display: flex; align-items: center; gap: 10px;">
-                            <div style="width: 8px; height: 8px; background: #3b82f6; border-radius: 2px;"></div>
-                            <span style="color: #fff; font-weight: bold; font-size: 13px; text-transform: uppercase;">${title}</span>
+            let content = '';
+
+            if (isSettings) {
+                content = `
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <div>
+                            <label style="color:#94a3b8; font-size:10px; font-weight:bold;">ВАШ НИКНЕЙМ</label>
+                            <input id="set-nick" type="text" value="${getSetting('riv_nick', 'Nick_Name')}" style="width:100%; background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff; outline:none;">
                         </div>
-                        <div style="padding: 20px;">
-                            <p style="color: #94a3b8; font-size: 13px; margin-bottom: 15px;">${message}</p>
-                            ${isConfirm ? '' : (isTextArea 
-                                ? `<textarea id="modal-field" placeholder="${inputPlaceholder}" style="width: 100%; background: #1e1e27; border: 1px solid #40404f; border-radius: 8px; padding: 12px; color: #fff; font-size: 13px; outline: none; height: 120px; resize: none; width: -webkit-fill-available;"></textarea>`
-                                : `<input id="modal-field" type="text" placeholder="${inputPlaceholder}" style="width: -webkit-fill-available; background: #1e1e27; border: 1px solid #40404f; border-radius: 8px; padding: 12px; color: #fff; font-size: 13px; outline: none;">`
-                            )}
-                            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                                <button id="modal-cancel" style="background: #3a3a4a; color: #fff; border: none; padding: 10px 22px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">${isConfirm ? 'НЕТ' : 'ОТМЕНА'}</button>
-                                <button id="modal-confirm" style="background: #0d5c3e; color: #fff; border: none; padding: 10px 22px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;">${isConfirm ? 'ДА' : 'ПРИНЯТЬ'}</button>
+                        <div>
+                            <label style="color:#94a3b8; font-size:10px; font-weight:bold;">ЗВАНИЕ</label>
+                            <select id="set-rank" style="width:100%; background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff; outline:none;">
+                                ${RANKS.map(r => `<option value="${r}" ${r === getSetting('riv_rank', 'Рядовой') ? 'selected' : ''}>${r}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label style="color:#94a3b8; font-size:10px; font-weight:bold;">ЛИЧНАЯ ПОДПИСЬ</label>
+                            <input id="set-sign" type="text" value="${getSetting('riv_sign', 'Police Dept.')}" style="width:100%; background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff; outline:none;">
+                        </div>
+                    </div>
+                `;
+            } else {
+                content = isConfirm ? '' : (isTextArea 
+                    ? `<textarea id="modal-field" placeholder="${inputPlaceholder}" style="width:100%; background:#16161e; border:1px solid #444; border-radius:8px; padding:12px; color:#fff; height:120px; resize:none; outline:none; border: 1px solid #3b82f644;"></textarea>`
+                    : `<input id="modal-field" type="text" value="${inputPlaceholder.includes('Nick_Name') ? detectNick() : ''}" placeholder="${inputPlaceholder}" style="width:100%; background:#16161e; border:1px solid #444; border-radius:8px; padding:12px; color:#fff; outline:none; border: 1px solid #3b82f644;">`
+                );
+            }
+
+            const html = `
+                <div id="${modalId}" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); z-index: 30000; display: flex; align-items: center; justify-content: center; font-family: 'Segoe UI', sans-serif;">
+                    <div style="background: linear-gradient(145deg, #1e1e27, #16161e); width: 380px; border-radius: 16px; border: 1px solid #ffffff11; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow: hidden;">
+                        <div style="padding: 18px; background: #3b82f611; border-bottom: 1px solid #ffffff08; text-align:center;">
+                            <span style="color: #fff; font-weight: 800; font-size: 14px; letter-spacing: 1px;">${title}</span>
+                        </div>
+                        <div style="padding: 24px;">
+                            ${message ? `<p style="color: #94a3b8; font-size: 13px; margin-bottom: 18px; text-align:center;">${message}</p>` : ''}
+                            ${content}
+                            <div style="display: flex; gap: 12px; margin-top: 24px;">
+                                <button id="modal-cancel" style="flex:1; background: #334155; color: #fff; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600;">${isConfirm ? 'НЕТ' : 'ОТМЕНА'}</button>
+                                <button id="modal-confirm" style="flex:1; background: #3b82f6; color: #fff; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 4px 12px #3b82f644;">${isConfirm ? 'ДА' : 'ПОДТВЕРДИТЬ'}</button>
                             </div>
                         </div>
                     </div>
-                </div><style>@keyframes rivSlide { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }</style>`;
+                </div>`;
+            
             document.body.insertAdjacentHTML('beforeend', html);
             const m = document.getElementById(modalId);
-            const f = m.querySelector('#modal-field');
-            if(f) f.focus();
+            if(m.querySelector('#modal-field')) m.querySelector('#modal-field').focus();
 
-            m.querySelector('#modal-confirm').onclick = () => { const v = f ? f.value : true; m.remove(); resolve(v); };
+            m.querySelector('#modal-confirm').onclick = () => {
+                if (isSettings) {
+                    localStorage.setItem('riv_nick', m.querySelector('#set-nick').value);
+                    localStorage.setItem('riv_rank', m.querySelector('#set-rank').value);
+                    localStorage.setItem('riv_sign', m.querySelector('#set-sign').value);
+                    m.remove();
+                    location.reload();
+                } else {
+                    const v = m.querySelector('#modal-field') ? m.querySelector('#modal-field').value : true;
+                    m.remove();
+                    resolve(v);
+                }
+            };
             m.querySelector('#modal-cancel').onclick = () => { m.remove(); resolve(false); };
         });
     }
@@ -66,65 +115,67 @@
 
         const panel = document.createElement('div');
         panel.id = 'rivera-panel';
-        panel.style = "position: fixed; bottom: 20px; right: 20px; width: 260px; background: #2d2d3a; border-radius: 12px; z-index: 10000; border: 1px solid #40404f; overflow: hidden; font-family: sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.5);";
+        // Расположение справа вне контента
+        panel.style = "position: fixed; top: 50%; right: 15px; transform: translateY(-50%); width: 220px; background: rgba(30, 30, 39, 0.85); backdrop-filter: blur(12px); border-radius: 20px; z-index: 10000; border: 1px solid rgba(255,255,255,0.08); font-family: 'Segoe UI', Tahoma, sans-serif; box-shadow: 0 20px 40px rgba(0,0,0,0.4); padding: 15px; display: flex; flex-direction: column; gap: 12px;";
         
         panel.innerHTML = `
-            <div style="background: #1e1e27; padding: 12px; border-bottom: 1px solid #40404f; display: flex; align-items: center; gap: 8px;">
-                <div style="width: 10px; height: 10px; background: #3b82f6; border-radius: 2px;"></div>
-                <span style="color: #fff; font-size: 11px; font-weight: bold;">УМВД | RIVERA HELPER</span>
+            <div style="text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px; margin-bottom: 5px;">
+                <div style="font-size: 12px; font-weight: 900; color: #fff; letter-spacing: 1px;">УМВД RIVERA</div>
+                <div style="font-size: 9px; color: #3b82f6; font-weight: bold; margin-top: 2px;">PREMIUM HELPER</div>
             </div>
-            <div style="padding: 12px; display: flex; flex-direction: column; gap: 6px;">
-                <select id="rank-select" style="background: #1e1e27; color: #fff; border: 1px solid #40404f; border-radius: 6px; padding: 8px; font-size: 11px; cursor: pointer;">
-                    ${RANKS.map(r => `<option value="${r}" ${r === localStorage.getItem('umvd_rank') ? 'selected' : ''}>${r}</option>`).join('')}
-                </select>
-                <button class="riv-btn" data-type="ok" style="background:#0d5c3e;">✅ ОДОБРЕНО</button>
-                <button class="riv-btn" data-type="no" style="background:#7a2e2e;">❌ ОТКАЗАНО</button>
-                <button class="riv-btn" data-type="results" style="background:#3b82f6;">📊 ИТОГИ СПИСКОМ</button>
-                <div style="margin-top: 5px; border-top: 1px solid #40404f; padding-top: 8px;">
-                    <input id="nick-field" type="text" placeholder="Ваш Ник" value="${localStorage.getItem('umvd_nick') || ''}" style="background:#1e1e27; border:1px solid #40404f; color:#fff; font-size:11px; text-align:center; outline:none; width:100%; border-radius:4px; padding:6px;">
-                </div>
-            </div>`;
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="riv-btn" data-type="ok" style="background: linear-gradient(to right, #166534, #15803d); border-left: 4px solid #4ade80;">ОДОБРИТЬ</button>
+                <button class="riv-btn" data-type="no" style="background: linear-gradient(to right, #7f1d1d, #b91c1c); border-left: 4px solid #f87171;">ОТКАЗАТЬ</button>
+                <button class="riv-btn" data-type="results" style="background: linear-gradient(to right, #1e40af, #3b82f6); border-left: 4px solid #60a5fa;">ИТОГИ СПИСКОМ</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 5px;">
+                <a href="https://forum.blackrussia.online/threads/1/" target="_blank" title="Уголовный Кодекс" style="background: #2d2d3a; color: #94a3b8; font-size: 10px; padding: 8px 0; border-radius: 8px; text-align: center; text-decoration: none; border: 1px solid #ffffff05;">УК</a>
+                <a href="https://forum.blackrussia.online/threads/2/" target="_blank" title="КоАП" style="background: #2d2d3a; color: #94a3b8; font-size: 10px; padding: 8px 0; border-radius: 8px; text-align: center; text-decoration: none; border: 1px solid #ffffff05;">КП</a>
+                <a href="https://forum.blackrussia.online/threads/3/" target="_blank" title="Устав" style="background: #2d2d3a; color: #94a3b8; font-size: 10px; padding: 8px 0; border-radius: 8px; text-align: center; text-decoration: none; border: 1px solid #ffffff05;">УТ</a>
+            </div>
+
+            <button id="open-settings" style="background: transparent; border: 1px dashed #444; color: #64748b; font-size: 10px; padding: 8px; border-radius: 8px; cursor: pointer; transition: 0.3s;">⚙️ ПЕРСОНАЛИЗАЦИЯ</button>
+            
+            <div style="font-size: 9px; color: #444; text-align: center; margin-top: auto;">${getSetting('riv_rank', 'Звание')} ${getSetting('riv_nick', 'Ник')}</div>
+        `;
+
         document.body.appendChild(panel);
 
-        document.getElementById('rank-select').onchange = (e) => localStorage.setItem('umvd_rank', e.target.value);
-        document.getElementById('nick-field').oninput = (e) => localStorage.setItem('umvd_nick', e.target.value);
+        document.getElementById('open-settings').onclick = () => showModal({ title: 'ПЕРСОНАЛИЗАЦИЯ', isSettings: true });
 
         document.querySelectorAll('.riv-btn').forEach(btn => {
-            btn.style = btn.getAttribute('style') + "color:white; border:none; padding:10px; border-radius:6px; cursor:pointer; font-size:11px; font-weight:bold; text-align:left; transition: 0.2s;";
+            btn.style.cssText += "color:white; border-top:none; border-right:none; border-bottom:none; padding:12px; border-radius:10px; cursor:pointer; font-size:11px; font-weight:700; text-align:left; transition: 0.3s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2);";
+            
+            btn.onmouseover = () => btn.style.transform = "translateX(-5px)";
+            btn.onmouseout = () => btn.style.transform = "translateX(0)";
+
             btn.onclick = async () => {
-                const rank = localStorage.getItem('umvd_rank');
-                const myNick = localStorage.getItem('umvd_nick');
+                const rank = getSetting('riv_rank', 'Рядовой');
+                const nick = getSetting('riv_nick', 'Nick_Name');
+                const sign = getSetting('riv_sign', 'Police');
+                const date = new Date().toLocaleDateString();
                 const type = btn.getAttribute('data-type');
                 let body = "";
 
                 if (type === 'results') {
-                    // Специальная логика для итогов
-                    const approvedList = await showModal({ title: 'ОДОБРЕНО', message: 'Введите ники через запятую или с новой строки:', inputPlaceholder: 'Nick_1, Nick_2...', isTextArea: true });
-                    const rejectedList = await showModal({ title: 'ОТКАЗАНО', message: 'Введите ники и причины:', inputPlaceholder: 'Nick - причина...', isTextArea: true });
-                    
-                    body = `[B][SIZE=5][COLOR=rgb(30, 144, 255)]ИТОГИ РАССМОТРЕНИЯ ЗАЯВЛЕНИЙ УМВД[/COLOR][/SIZE][/B]<br><br>` +
-                           `[LEFT][B][COLOR=rgb(34, 197, 94)]КАНДИДАТЫ, ПРОШЕДШИЕ ОТБОР:[/COLOR][/B]<br>${approvedList || 'Список пуст'}<br><br>` +
-                           `[B][COLOR=rgb(239, 68, 68)]КАНДИДАТЫ, ПОЛУЧИВШИЕ ОТКАЗ:[/COLOR][/B]<br>${rejectedList || 'Список пуст'}[/LEFT]`;
+                    const app = await showModal({ title: 'СПИСОК ОДОБРЕННЫХ', message: 'Введите ники кандидатов:', isTextArea: true });
+                    const rej = await showModal({ title: 'СПИСОК ОТКАЗАННЫХ', message: 'Введите ники и причины:', isTextArea: true });
+                    body = `[B][SIZE=5][COLOR=rgb(30, 144, 255)]ИТОГИ ПРОВЕРКИ ЗАЯВЛЕНИЙ УМВД[/COLOR][/SIZE][/B]<br><br>[LEFT][B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО:[/COLOR][/B]<br>${app || '—'}<br><br>[B][COLOR=rgb(239, 68, 68)]ОТКАЗАНО:[/COLOR][/B]<br>${rej || '—'}[/LEFT]`;
                 } else {
-                    // Логика для одиночных ответов
-                    const playerNick = await showModal({ title: 'НИК ИГРОКА', message: 'Никнейм игрока:', inputPlaceholder: 'Nick_Name' });
+                    const playerNick = await showModal({ title: 'ПРОВЕРКА ИГРОКА', message: 'Никнейм игрока (найден в цитате):', inputPlaceholder: 'Nick_Name' });
                     if (!playerNick) return;
 
                     body = `Здравия желаю, уважаемый(-ая) [B]${playerNick}[/B].<br><br>`;
-                    
-                    if (type === 'ok') {
-                        body += `Ваше заявление было рассмотрено руководством УМВД.<br>Вердикт: [B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО[/COLOR][/B].`;
-                    } else if (type === 'no') {
-                        const reason = await showModal({ title: 'ПРИЧИНА', message: 'Укажите причину отказа:', inputPlaceholder: 'Текст...' });
-                        body += `Ваше заявление было рассмотрено руководством УМВД.<br>Вердикт: [B][COLOR=rgb(239, 68, 68)]ОТКАЗАНО[/COLOR][/B].<br>Причина: ${reason || 'Не соответствует критериям'}.`;
-                    }
+                    body += type === 'ok' 
+                        ? `Ваше заявление было рассмотрено руководством УМВД.<br>Вердикт: [B][COLOR=rgb(34, 197, 94)]ОДОБРЕНО[/COLOR][/B].`
+                        : `Ваше заявление было рассмотрено руководством УМВД.<br>Вердикт: [B][COLOR=rgb(239, 68, 68)]ОТКАЗАНО[/COLOR][/B].`;
                 }
 
-                // Спрашиваем про подпись (Да/Нет)
-                const needSign = await showModal({ title: 'ПОДПИСЬ', message: `Добавить подпись: "${rank} УМВД ${myNick}"?`, isConfirm: true });
-
+                const needSign = await showModal({ title: 'ПОДПИСЬ', message: 'Прикрепить вашу личную роспись?', isConfirm: true });
                 if (needSign) {
-                    body += `<br><br>С уважением, ${rank} УМВД ${myNick}.`;
+                    body += `<br><br>С уважением, ${rank} УМВД — ${nick}.<br>[I]${sign}[/I]<br>[SIZE=2]Дата: ${date}[/SIZE]`;
                 }
 
                 quoteAndAppend(body);
@@ -132,5 +183,6 @@
         });
     }
 
+    // Запуск и слежение за изменениями страницы
     setInterval(createUI, 1000);
 })();
