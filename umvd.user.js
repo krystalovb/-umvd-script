@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD MASTER HELPER v10
+// @name         UMVD CUSTOM SIGNATURE PANEL
 // @namespace    http://tampermonkey.net/
-// @version      10.0
-// @description  Полностью рабочий скрипт. Интегрированная панель.
+// @version      12.0
+// @description  Кнопки под редактором + кастомная подпись в настройках справа.
 // @author       Gemini AI
 // @match        *://forum.blackrussia.online/*
 // @grant        none
@@ -11,100 +11,114 @@
 (function() {
     'use strict';
 
-    // 1. Сохранение данных
+    // 1. ПОЛУЧЕНИЕ ДАННЫХ
     const getStorage = () => ({
         nick: localStorage.getItem('umvd_nick') || "Nick_Name",
-        rank: localStorage.getItem('umvd_rank') || "Полковник"
+        rank: localStorage.getItem('umvd_rank') || "Полковник",
+        sign: localStorage.getItem('umvd_sign') || "Служим России, служим закону!"
     });
 
-    // 2. Умная вставка текста (Решает проблему неработающих кнопок)
-    function insertText(html) {
-        // Пробуем найти основной слой редактора Froala
-        const editor = document.querySelector('.fr-element.fr-view p') || 
-                       document.querySelector('.fr-element.fr-view') ||
-                       document.querySelector('.js-editor textarea');
-
+    // 2. ФУНКЦИЯ ВСТАВКИ
+    function insertToEditor(html) {
+        const editor = document.querySelector('.fr-element.fr-view');
         if (!editor) {
-            alert("Ошибка: Поле ввода не найдено! Нажмите на поле 'Ответить', чтобы активировать редактор.");
+            alert("Ошибка: кликните в поле ввода, чтобы активировать курсор!");
             return;
         }
-
-        const container = document.querySelector('.fr-element.fr-view');
-        if (container) {
-            container.focus();
-            // Используем нативный метод вставки для XenForo/Froala
-            document.execCommand('insertHTML', false, html);
-        } else {
-            editor.value += html;
-        }
+        editor.focus();
+        document.execCommand('insertHTML', false, html);
     }
 
-    // 3. Красивый шаблон
-    const buildResponse = (status, text) => {
+    // 3. УЛУЧШЕННЫЙ ШАБЛОН С КАСТОМНОЙ ПОДПИСЬЮ
+    const buildMsg = (status, text) => {
         const data = getStorage();
         const date = new Date().toLocaleDateString('ru-RU');
         const color = status === "ОДОБРЕНО" ? "#00FF7F" : "#FF4500";
 
-        return `<center>[COLOR=rgb(30, 144, 255)]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR]
-[B][FONT=times new roman][SIZE=5]УПРАВЛЕНИЕ МВД ПО НИЖЕГОРОДСКОЙ ОБЛАСТИ[/SIZE][/FONT][/B]
-[COLOR=rgb(30, 144, 255)]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR]</center>
-<br>
-[FONT=times new roman][SIZE=4]Здравия желаю!<br>
-Я, ${data.rank} УМВД [B]${data.nick}[/B], проверил ваше заявление.<br><br>
-Вердикт: [B][COLOR=${color}]${status}[/COLOR][/B]<br>
-${text}[/SIZE][/FONT]
-<br><br>
-[RIGHT][B]Дата:[/B] ${date}
-[B]Подпись:[/B] ${data.nick}[/RIGHT]`;
+        return `<center>[COLOR=rgb(30, 144, 255)]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR]<br>` +
+               `[B][FONT=times new roman][SIZE=5]УМВД ПО НИЖЕГОРОДСКОЙ ОБЛАСТИ[/SIZE][/FONT][/B]<br>` +
+               `[COLOR=rgb(30, 144, 255)]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/COLOR]</center><br><br>` +
+               `[FONT=times new roman][SIZE=4]Здравия желаю!<br>` +
+               `Ваше заявление было рассмотрено руководством Управления МВД.<br><br>` +
+               `Вердикт: [B][COLOR=${color}]${status}[/COLOR][/B]<br>` +
+               `${text}[/SIZE][/FONT]<br><br>` +
+               `[RIGHT][B]Дата:[/B] ${date}<br>` +
+               `[B]Должность:[/B] ${data.rank}<br>` +
+               `[B]Подпись:[/B] ${data.nick}<br>` +
+               `[I][COLOR=rgb(128, 128, 128)]${data.sign}[/COLOR][/I][/RIGHT]`;
     };
 
-    // 4. Создание и внедрение панели
-    function createPanel() {
-        if (document.getElementById('umvd-panel-v10')) return;
+    // 4. ПАНЕЛЬ ВАРИАНТОВ ПОД РЕДАКТОРОМ
+    function injectActionButtons() {
+        if (document.getElementById('umvd-actions-row')) return;
 
-        // Ищем место под редактором (кнопки "Ответить")
-        const target = document.querySelector('.formButtonGroup') || document.querySelector('.xf-formButtons');
-        if (!target) return;
+        const footer = document.querySelector('.formButtonGroup') || document.querySelector('.xf-formButtons');
+        if (!footer) return;
 
-        const panel = document.createElement('div');
-        panel.id = 'umvd-panel-v10';
-        panel.style = "background:#181a1b; border:2px solid #1e90ff; padding:12px; border-radius:10px; margin:10px 0; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; box-shadow: 0 4px 10px rgba(0,0,0,0.5);";
+        const row = document.createElement('div');
+        row.id = 'umvd-actions-row';
+        row.style = "display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; padding: 8px; background: rgba(30, 144, 255, 0.05); border: 1px dashed #1e90ff; border-radius: 10px;";
 
-        const btns = [
-            { t: "✅ Одобрить", c: "#27ae60", act: () => insertText(buildResponse("ОДОБРЕНО", "Ждем вас в здании УМВД г. Южный.")) },
-            { t: "❌ Отказать", c: "#c0392b", act: () => {
-                const r = prompt("Причина отказа:");
-                if (r) insertText(buildResponse("ОТКАЗАНО", `Причина: [B]${r}[/B]`));
-            }},
-            { t: "⏳ Рассмотрение", c: "#f39c12", act: () => insertText(buildResponse("НА РАССМОТРЕНИИ", "Ожидайте ответа в течение 24-х часов.")) },
-            { t: "⚙️ Настроить", c: "#555", act: () => {
-                const n = prompt("Ник:", getStorage().nick);
-                const r = prompt("Ранг:", getStorage().rank);
-                if (n && r) {
-                    localStorage.setItem('umvd_nick', n);
-                    localStorage.setItem('umvd_rank', r);
-                    location.reload();
-                }
-            }}
+        const actions = [
+            { t: "✅ Одобрить", c: "#27ae60", html: buildMsg("ОДОБРЕНО", "Просим вас прибыть в здание УМВД г. Южный для прохождения инструктажа.") },
+            { t: "❌ Отказать", c: "#c0392b", isPrompt: true },
+            { t: "⏳ Рассмотрение", c: "#f39c12", html: buildMsg("НА РАССМОТРЕНИИ", "Ваши данные проходят проверку по базе ИЦ МВД. Ожидайте.") },
+            { t: "🚔 Перевод", c: "#2980b9", html: buildMsg("ОДОБРЕНО", "Рапорт на перевод одобрен. Ждем вас в рабочее время.") },
+            { t: "🚫 Нарушение", c: "#7f8c8d", html: buildMsg("ОТКАЗАНО", "Заявление заполнено не по форме или содержит бред (МГ).") }
         ];
 
-        btns.forEach(b => {
-            const el = document.createElement('button');
-            el.innerText = b.t;
-            el.type = "button";
-            el.style = `background:${b.c}; color:white; border:none; padding:8px 15px; border-radius:6px; cursor:pointer; font-weight:bold; transition:0.3s;`;
-            el.onclick = (e) => { e.preventDefault(); b.act(); };
-            el.onmouseover = () => el.style.filter = "brightness(1.2)";
-            el.onmouseout = () => el.style.filter = "none";
-            panel.appendChild(el);
+        actions.forEach(a => {
+            const btn = document.createElement('button');
+            btn.innerText = a.t;
+            btn.type = "button";
+            btn.style = `background:${a.c}; color:white; border:none; padding:7px 12px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:11px; transition: 0.2s;`;
+            
+            btn.onclick = (e) => {
+                e.preventDefault();
+                if (a.isPrompt) {
+                    const r = prompt("Укажите причину отказа:");
+                    if (r) insertToEditor(buildMsg("ОТКАЗАНО", `Причина: [B]${r}[/B]`));
+                } else {
+                    insertToEditor(a.html);
+                }
+            };
+            row.appendChild(btn);
         });
 
-        target.parentNode.insertBefore(panel, target);
+        footer.parentNode.insertBefore(row, footer);
     }
 
-    // Запускаем поиск редактора
-    const timer = setInterval(() => {
-        createPanel();
-    }, 1500);
+    // 5. КНОПКА НАСТРОЕК СПРАВА
+    function injectSettingsBtn() {
+        if (document.getElementById('umvd-settings-fab')) return;
+
+        const fab = document.createElement('div');
+        fab.id = 'umvd-settings-fab';
+        fab.innerHTML = "⚙️";
+        fab.style = "position: fixed; right: 20px; top: 50%; width: 45px; height: 45px; background: #1c1c1c; color: #1e90ff; display: flex; align-items: center; justify-content: center; border-radius: 12px; cursor: pointer; z-index: 10000; font-size: 22px; border: 2px solid #1e90ff; box-shadow: 0 5px 15px rgba(0,0,0,0.5);";
+
+        fab.onclick = () => {
+            const data = getStorage();
+            const n = prompt("Ваш Ник (Nick_Name):", data.nick);
+            const r = prompt("Ваше Звание:", data.rank);
+            const s = prompt("Кастомная подпись (будет в самом низу):", data.sign);
+            
+            if (n !== null && r !== null && s !== null) {
+                localStorage.setItem('umvd_nick', n);
+                localStorage.setItem('umvd_rank', r);
+                localStorage.setItem('umvd_sign', s);
+                alert("Данные успешно обновлены!");
+                location.reload();
+            }
+        };
+
+        document.body.appendChild(fab);
+    }
+
+    // Инициализация
+    setInterval(() => {
+        injectActionButtons();
+        injectSettingsBtn();
+    }, 1000);
 
 })();
