@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Ultimate Edition
+// @name         UMVD Rivera Lime - Smart Detector
 // @namespace    https://forum.blackrussia.online
-// @version      27.0
-// @description  Добавлены: Свой ответ, Жалоба, Сержант [3] и др.
+// @version      29.0
+// @description  Улучшенный поиск ника игрока (сканирует весь пост)
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -13,7 +13,19 @@
     'use strict';
 
     const RANKS = ["Рядовой", "Сержант", "Старший Сержант", "Прапорщик", "Лейтенант", "Старший Лейтенант", "Капитан", "Майор", "Подполковник", "Полковник"];
-    const REASONS = ["Отсутствие военного билета.", "Скриншоты без /time.", "Скриншотам более 3-х дней.", "Не по форме / нечитаемый шрифт.", "Вы в ЧС фракции.", "Низкая законопослушность.", "Опечатка в паспорте (NonRP)."];
+    
+    const REASONS = [
+        "Свой ответ (ввести вручную)",
+        "Отсутствие военного билета.",
+        "Скриншоты без /time.",
+        "Скриншотам более 3-х дней.",
+        "Не по форме / нечитаемый шрифт.",
+        "Вы находитесь в ЧС организации.",
+        "Низкая законопослушность (менее 30).",
+        "Опечатка в паспорте (NonRP NickName).",
+        "Некорректные/битые ссылки на доказательства.",
+        "Отсутствие необходимых лицензий."
+    ];
     
     const APPROVE_TYPES = [
         "Обычное одобрение",
@@ -27,19 +39,6 @@
         "Заявление на отпуск"
     ];
 
-    const INFO_TEXT = `
-        <b style="color:#3b82f6;">— КРИТЕРИИ ВСТУПЛЕНИЯ —</b><br>
-        • 3-летняя прописка (3 LVL).<br>
-        • Военный билет, Мед. карта.<br>
-        • Лицензии: В, Оружие.<br>
-        • Законопослушность: 30+.<br><br>
-        <b style="color:#3b82f6;">— ПРАВИЛА ПЕРЕВОДОВ —</b><br>
-        • Из МО: -1 ранг.<br>
-        • Из ГИБДД: без потери.<br>
-        • Из ФСБ: +1 ранг.<br>
-        • Из ФСИН: -1 ранг.
-    `;
-
     const getSetting = (key, def) => localStorage.getItem(key) || def;
 
     function fixNick(nick) {
@@ -50,31 +49,38 @@
 
     function detectNickname() {
         const posts = document.querySelectorAll('.bbWrapper');
-        if (posts.length > 0) {
-            const lastText = posts[posts.length - 1].innerText;
-            const match = lastText.match(/([A-Z][a-z]+_[A-Z][a-z]+)/);
-            return match ? match[0] : "";
+        if (posts.length === 0) return "";
+
+        const lastPostText = posts[posts.length - 1].innerText;
+        const myNick = getSetting('riv_nick', '').toLowerCase();
+        
+        // Регулярка для поиска Nick_Name
+        const regex = /([A-Z][a-z]+_[A-Z][a-z]+)/g;
+        const matches = lastPostText.match(regex);
+
+        if (matches) {
+            // Фильтруем, чтобы не найти самого себя (автора скрипта)
+            const filtered = matches.filter(n => n.toLowerCase() !== myNick);
+            // Возвращаем первый найденный ник игрока
+            return filtered.length > 0 ? filtered[0] : "";
         }
         return "";
     }
 
-    function showModal({ title, message = "", options = null, isSettings = false, isTextArea = false, isQuestion = false, isInfo = false, inputPlaceholder = "" }) {
+    function showModal({ title, message = "", options = null, isSettings = false, isTextArea = false, isQuestion = false, inputPlaceholder = "" }) {
         return new Promise((resolve) => {
             const modalId = 'rivera-modal';
             let content = '';
 
-            if (isInfo) {
-                content = `<div style="color:#fff; font-size:12px; line-height:1.5; background:#16161e; padding:15px; border-radius:10px; border:1px solid #333;">${INFO_TEXT}</div>`;
-            } else if (isSettings) {
+            if (isSettings) {
                 content = `
                 <input id="set-nick" type="text" placeholder="Ваш Ник" value="${getSetting('riv_nick', '')}" style="width:100%; background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff; margin-bottom:10px;">
                 <input id="set-sign" type="text" placeholder="Ваша Подпись" value="${getSetting('riv_sign', '')}" style="width:100%; background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff; margin-bottom:10px;">
-                <p style="color:#94a3b8; font-size:11px; margin-bottom:5px;">Ваш ранг:</p>
-                <div style="display:grid; gap:5px; max-height:140px; overflow-y:auto; border:1px solid #333; padding:5px; border-radius:8px;">
+                <div style="display:grid; gap:5px; max-height:140px; overflow-y:auto;">
                     ${RANKS.map(r => `<button class="rank-opt" data-v="${r}" style="background:#2d2d3a; color:#fff; border:none; padding:8px; border-radius:6px; font-size:11px; cursor:pointer;">${r}</button>`).join('')}
                 </div>`;
             } else if (options) {
-                content = `<div style="display:grid; gap:3px; max-height:250px; overflow-y:auto;">${options.map(o => `<button class="opt-btn" data-v="${o}" style="background:#2d2d3a; color:#fff; border:1px solid #444; padding:8px; border-radius:6px; font-size:11px; cursor:pointer; text-align:left;">${o}</button>`).join('')}</div>`;
+                content = `<div style="display:grid; gap:3px; max-height:280px; overflow-y:auto;">${options.map(o => `<button class="opt-btn" data-v="${o}" style="background:#2d2d3a; color:#fff; border:1px solid #444; padding:8px; border-radius:6px; font-size:11px; cursor:pointer; text-align:left;">${o}</button>`).join('')}</div>`;
             } else if (isTextArea) {
                 content = `<textarea id="modal-field" placeholder="${inputPlaceholder}" style="width:100%; height:120px; background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff; resize:none; font-size:12px;"></textarea>`;
             } else if (!isQuestion) {
@@ -89,8 +95,8 @@
                         ${message ? `<p style="color:#94a3b8; font-size:12px; margin-bottom:10px; text-align:center;">${message}</p>` : ''}
                         ${content}
                         <div style="display:flex; gap:10px; margin-top:20px;">
-                            <button id="m-cancel" style="flex:1; background:#334155; color:#fff; border:none; padding:12px; border-radius:8px; cursor:pointer;">${(isQuestion || isInfo) ? 'НЕТ' : 'ОТМЕНА'}</button>
-                            ${(options || isSettings || isInfo) ? '' : `<button id="m-confirm" style="flex:1; background:#166534; color:#fff; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold;">${isQuestion ? 'ДА' : 'ДАЛЕЕ →'}</button>`}
+                            <button id="m-cancel" style="flex:1; background:#334155; color:#fff; border:none; padding:12px; border-radius:8px; cursor:pointer;">${isQuestion ? 'НЕТ' : 'ОТМЕНА'}</button>
+                            ${(options || isSettings) ? '' : `<button id="m-confirm" style="flex:1; background:#166534; color:#fff; border:none; padding:12px; border-radius:8px; cursor:pointer; font-weight:bold;">${isQuestion ? 'ДА' : 'ДАЛЕЕ →'}</button>`}
                         </div>
                     </div>
                 </div>
@@ -128,12 +134,10 @@
             <button class="r-btn" data-t="ok" style="background:#166534;">ОДОБРИТЬ</button>
             <button class="r-btn" data-t="no" style="background:#7f1d1d;">ОТКАЗАТЬ</button>
             <button class="r-btn" data-t="res" style="background:#374151;">ИТОГИ</button>
-            <button id="r-info" style="background:#ca8a04; color:#fff; border:none; padding:8px; border-radius:8px; font-size:10px; font-weight:bold; cursor:pointer;">ℹ️ ШПАРГАЛКА</button>
             <button id="r-set" style="background:none; border:1px solid #444; color:#64748b; font-size:9px; padding:6px; border-radius:6px; margin-top:2px;">⚙️ НАСТРОЙКИ</button>
         `;
         document.body.appendChild(panel);
 
-        document.getElementById('r-info').onclick = () => showModal({ title: 'СПРАВОЧНИК УМВД', isInfo: true });
         document.getElementById('r-set').onclick = () => showModal({ title: 'НАСТРОЙКИ', isSettings: true });
 
         document.querySelectorAll('.r-btn').forEach(btn => {
@@ -150,42 +154,40 @@
                     const pNick = await showModal({ title: 'ВВЕДИТЕ НИК ИГРОКА', inputPlaceholder: 'Nick_Name' });
                     if(!pNick) return;
                     
+                    body = `[CENTER][FONT=Times New Roman]Здравия желаю, уважаемый(-ая) [B]${pNick}[/B].<br><br>`;
+                    
                     if (type === 'ok') {
                         const subType = await showModal({ title: 'ТИП ОДОБРЕНИЯ', options: APPROVE_TYPES });
                         if(!subType) return;
-                        
-                        body = `[CENTER][FONT=Times New Roman]Здравия желаю, уважаемый(-ая) [B]${pNick}[/B].<br><br>`;
-                        
-                        if(subType === "Обычное одобрение") body += `Ваше заявление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
-                        else if(subType === "Свой ответ") {
-                            const custom = await showModal({ title: 'СВОЙ ТЕКСТ', isTextArea: true, inputPlaceholder: 'Введите ваш текст ответа...' });
+                        if(subType === "Свой ответ") {
+                            const custom = await showModal({ title: 'СВОЙ ТЕКСТ', isTextArea: true });
                             body += `${custom}`;
-                        }
-                        else if(subType === "Заявка на Сержанта [3]") body += `Ваше заявление на Сержанта [3]: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].<br>Ждём вас в здании УМВД.`;
+                        } else if(subType === "Обычное одобрение") body += `Ваше заявление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
+                        else if(subType === "Заявка на Сержанта [3]") body += `Ваше заявление на Сержанта [3]: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
                         else if(subType === "Повышение в звании") {
-                            const newRank = await showModal({ title: 'ПОВЫШЕНИЕ', inputPlaceholder: 'Новый ранг' });
-                            body += `Ваше заявление на повышение: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR] на [B]${newRank}[/B] ранг.`;
-                        } else if(subType === "Снятие выговора") {
-                            body += `Ваше заявление на снятие дисциплинарного взыскания: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
-                        } else if(subType === "Рассмотрение жалобы") {
-                            const punish = await showModal({ title: 'ЖАЛОБА', options: ["Сотрудник получит выговор", "С сотрудником будет проведена беседа", "Сотрудник будет уволен"] });
-                            body += `Ваша жалоба: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНА[/B][/COLOR].<br>${punish}.`;
-                        } else if(subType === "Перевод") {
-                            const trRank = await showModal({ title: 'ПЕРЕВОД', inputPlaceholder: 'На какой ранг (с учетом правил)?' });
-                            body += `Ваше заявление на перевод: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR] на [B]${trRank}[/B] ранг.`;
+                            const r = await showModal({ title: 'РАНГ', inputPlaceholder: 'Новый ранг' });
+                            body += `Ваше заявление на повышение: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR] на [B]${r}[/B] ранг.`;
+                        } else if(subType === "Снятие выговора") body += `Ваше заявление на снятие выговора: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
+                        else if(subType === "Рассмотрение жалобы") body += `Ваша жалоба: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНА[/B][/COLOR]. Сотрудник будет наказан.`;
+                        else if(subType === "Перевод") {
+                            const r = await showModal({ title: 'ПЕРЕВОД', inputPlaceholder: 'Ранг после перевода' });
+                            body += `Ваше заявление на перевод: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR] на [B]${r}[/B] ранг.`;
                         } else if(subType === "Восстановление") {
-                            const oldR = await showModal({ title: 'ВОССТАНОВЛЕНИЕ', inputPlaceholder: 'Бывший ранг' });
-                            body += `Ваше заявление на восстановление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR] на [B]${parseInt(oldR)-2 || 1}[/B] ранг.`;
+                            const r = await showModal({ title: 'ВОССТАНОВЛЕНИЕ', inputPlaceholder: 'Ранг' });
+                            body += `Ваше заявление на восстановление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR] на [B]${r}[/B] ранг.`;
                         } else if(subType === "Заявление на отпуск") body += `Ваше заявление на отпуск: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
                         
                     } else if (type === 'no') {
-                        const rsn = await showModal({ title: 'ПРИЧИНА ОТКАЗА', options: REASONS });
+                        let rsn = await showModal({ title: 'ПРИЧИНА ОТКАЗА', options: REASONS });
                         if(!rsn) return;
-                        body = `[CENTER][FONT=Times New Roman]Здравия желаю, уважаемый(-ая) [B]${pNick}[/B].<br><br>Ваше заявление: [COLOR=rgb(239, 68, 68)][B]ОТКАЗАНО[/B][/COLOR].<br>Причина: ${rsn}.`;
+                        if(rsn.includes("Свой ответ")) {
+                            rsn = await showModal({ title: 'СВОЯ ПРИЧИНА', isTextArea: true });
+                        }
+                        body += `Ваше заявление: [COLOR=rgb(239, 68, 68)][B]ОТКАЗАНО[/B][/COLOR].<br>Причина: ${rsn}`;
                     }
                 }
 
-                const signConfirm = await showModal({ title: 'ПОДПИСЬ', message: 'Добавить вашу роспись в ответ?', isQuestion: true });
+                const signConfirm = await showModal({ title: 'ПОДПИСЬ', message: 'Добавить роспись?', isQuestion: true });
                 if (signConfirm) {
                     body += `<br><br>С уважением, ${getSetting('riv_rank', 'Сотрудник')} УМВД — ${getSetting('riv_nick', 'Nick')}.<br>[I]${getSetting('riv_sign', 'Rivera')}[/I]`;
                 }
