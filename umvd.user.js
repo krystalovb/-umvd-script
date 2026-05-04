@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         UMVD Rivera Lime - Final Station
 // @namespace    https://forum.blackrussia.online
-// @version      20.0
-// @description  Таймер 24ч с пульсацией, счетчик нормы, расчет рангов, авто-детект и корректор.
-// @author       Saint_Rivera, Gudin & Gemini
+// @version      19.0
+// @description  Таймер 24ч с пульсацией, счетчик нормы и расчет рангов
+// @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
 // ==/UserScript==
@@ -19,28 +19,12 @@
 
     const getSetting = (key, def) => localStorage.getItem(key) || def;
 
-    // --- ФУНКЦИЯ: АВТО-КОРРЕКТОР ---
-    function autoCorrect(text) {
-        if (!text) return text;
-        let corrected = text;
-        // Исправление Nick_Name
-        corrected = corrected.replace(/([a-z])([a-z]+)_([a-z])([a-z]+)/gi, (match, p1, p2, p3, p4) => {
-            return p1.toUpperCase() + p2.toLowerCase() + "_" + p3.toUpperCase() + p4.toLowerCase();
-        });
-        // Исправление ошибок
-        const vocabulary = { "законопаслушность": "законопослушность", "расмотрено": "рассмотрено", "откозано": "отказано", "вердикт": "Вердикт" };
-        for (let key in vocabulary) {
-            let reg = new RegExp(key, "gi");
-            corrected = corrected.replace(reg, vocabulary[key]);
-        }
-        return corrected;
-    }
-
     function isUmvdForum() {
         return window.location.href.includes(`forums/%D0%A3%D0%9C%D0%92%D0%94.${TARGET_FORUM_ID}`);
     }
 
     function getTopicIdleTime() {
+        if (!isUmvdForum()) return null;
         const lastPostTimeElement = document.querySelector('.message:last-child .u-dt');
         if (!lastPostTimeElement) return null;
         const lastPostTimestamp = new Date(lastPostTimeElement.getAttribute('data-time') * 1000);
@@ -48,7 +32,6 @@
     }
 
     async function quoteAndAppend(text) {
-        const cleanText = autoCorrect(text);
         const quoteBtn = document.querySelector('.message:last-child [data-xf-click="quote"]') || 
                          document.querySelector('[data-xf-click="quote"]');
         if (quoteBtn) quoteBtn.click();
@@ -57,7 +40,7 @@
             const editor = document.querySelector('.fr-element.fr-view');
             if (editor) {
                 editor.focus();
-                const styledText = `[CENTER][FONT=Times New Roman]${cleanText}[/FONT][/CENTER]`;
+                const styledText = `[CENTER][FONT=Times New Roman]${text}[/FONT][/CENTER]`;
                 document.execCommand('insertHTML', false, styledText);
                 sessionWork++;
                 if(document.getElementById('riv-norm-counter')) {
@@ -73,12 +56,11 @@
             let content = '';
 
             if (isSettings) {
-                // Создаем список рангов для отображения в настройках
-                let rankOptions = RANKS.map((r, i) => `${i + 1} - ${r}`).join('\n');
                 content = `<div style="display:flex; flex-direction:column; gap:8px;">
                     <input id="set-nick" type="text" placeholder="Ваш Ник" value="${getSetting('riv_nick', '')}" style="background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff;">
-                    <p style="color:#94a3b8; font-size:10px; margin:0;">Введите цифру ранга (1-${RANKS.length}):</p>
-                    <input id="set-rank-num" type="number" placeholder="Номер ранга" value="${RANKS.indexOf(getSetting('riv_rank', '')) + 1}" style="background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff;">
+                    <select id="set-rank" style="background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff;">
+                        ${RANKS.map(r => `<option value="${r}" ${r === getSetting('riv_rank', '') ? 'selected' : ''}>${r}</option>`).join('')}
+                    </select>
                     <input id="set-sign" type="text" placeholder="Ваша Подпись" value="${getSetting('riv_sign', '')}" style="background:#16161e; border:1px solid #3b82f644; border-radius:8px; padding:10px; color:#fff;">
                 </div>`;
             } else if (options) {
@@ -111,10 +93,7 @@
             m.querySelector('#m-confirm')?.addEventListener('click', () => {
                 if(isSettings) {
                     localStorage.setItem('riv_nick', m.querySelector('#set-nick').value);
-                    const rNum = parseInt(m.querySelector('#set-rank-num').value);
-                    if (rNum > 0 && rNum <= RANKS.length) {
-                        localStorage.setItem('riv_rank', RANKS[rNum - 1]);
-                    }
+                    localStorage.setItem('riv_rank', m.querySelector('#set-rank').value);
                     localStorage.setItem('riv_sign', m.querySelector('#set-sign').value);
                     m.remove(); location.reload();
                 } else { resolve(m.querySelector('#modal-field')?.value || true); m.remove(); }
@@ -134,6 +113,7 @@
 
         if (idleHours !== null) {
             if (idleHours >= 20) {
+                // Пункт 6: Пульсация при приближении к 24 часам
                 timerStyle = "background:#7f1d1d; color:#fff; animation: pulse 1.5s infinite; border: 1px solid #f87171;";
                 timerText = `ВНИМАНИЕ: БЕЗ ОТВЕТА ${idleHours}ч.!`;
             } else {
@@ -215,3 +195,4 @@
 
     setInterval(createUI, 1000);
 })();
+вот в этот код закинь все что сделали, дизайн не меняй и все так же оставь выбор из списка чтоб самому не писать
