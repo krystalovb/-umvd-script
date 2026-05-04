@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Final Station
+// @name         UMVD Rivera Lime - FPS BOOST Edition
 // @namespace    https://forum.blackrussia.online
-// @version      19.0
-// @description  Таймер 24ч с пульсацией, счетчик нормы и расчет рангов
+// @version      20.0
+// @description  Удаление лишних серверов для FPS UP + Весь функционал УМВД
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -12,13 +12,37 @@
     'use strict';
 
     const TARGET_FORUM_ID = 340;
+    const SERVER_NAME = "Lime"; // Сервер, который оставляем
     const RANKS = ["Рядовой", "Сержант", "Старший Сержант", "Прапорщик", "Лейтенант", "Старший Лейтенант", "Капитан", "Майор", "Подполковник", "Полковник"];
     const REASONS = ["Отсутствие военного билета.", "Скриншоты без /time.", "Скриншотам более 3-х дней.", "Не по форме / нечитаемый шрифт.", "Вы в ЧС фракции.", "Низкая законопослушность.", "Опечатка в паспорте (NonRP)."];
 
     let sessionWork = 0;
-
     const getSetting = (key, def) => localStorage.getItem(key) || def;
 
+    // --- ФУНКЦИЯ FPS BOOST: УДАЛЕНИЕ ЛИШНИХ СЕРВЕРОВ ---
+    function applyFpsBoost() {
+        // Удаляем категории серверов на главной странице, если в названии нет "Lime"
+        document.querySelectorAll('.block--category').forEach(category => {
+            const title = category.querySelector('.block-header')?.innerText;
+            if (title && title.includes('Сервера') && !title.includes(SERVER_NAME)) {
+                category.remove();
+            }
+        });
+
+        // Удаляем узлы (форумы) серверов в списках
+        document.querySelectorAll('.node--forum').forEach(node => {
+            const nodeTitle = node.querySelector('.node-title')?.innerText;
+            if (nodeTitle && /\d+\s*server/i.test(nodeTitle) && !nodeTitle.includes(SERVER_NAME)) {
+                node.remove();
+            }
+            // Дополнительная проверка для списков без номеров
+            if (nodeTitle && ["Red", "Green", "Blue", "Yellow", "Orange", "Purple", "Azure", "Indigo", "White", "Black", "Pink", "Cherry", "Grozny"].some(s => nodeTitle.includes(s)) && !nodeTitle.includes(SERVER_NAME)) {
+                node.remove();
+            }
+        });
+    }
+
+    // --- ЛОГИКА ТАЙМЕРА И ПРОВЕРКИ ---
     function isUmvdForum() {
         return window.location.href.includes(`forums/%D0%A3%D0%9C%D0%92%D0%94.${TARGET_FORUM_ID}`);
     }
@@ -113,9 +137,8 @@
 
         if (idleHours !== null) {
             if (idleHours >= 20) {
-                // Пункт 6: Пульсация при приближении к 24 часам
                 timerStyle = "background:#7f1d1d; color:#fff; animation: pulse 1.5s infinite; border: 1px solid #f87171;";
-                timerText = `ВНИМАНИЕ: БЕЗ ОТВЕТА ${idleHours}ч.!`;
+                timerText = `СРОЧНО: ${idleHours}ч. БЕЗ ОТВЕТА!`;
             } else {
                 timerStyle = "background:#334155; color:#94a3b8;";
                 timerText = `Без ответа: ${idleHours}ч.`;
@@ -130,7 +153,7 @@
         
         panel.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #333; padding-bottom:5px;">
-                <div style="color:#fff; font-size:10px; font-weight:bold;">УМВД LIME</div>
+                <div style="color:#fff; font-size:10px; font-weight:bold;">УМВД LIME (FPS+)</div>
                 <div id="close-panel" style="color:#64748b; cursor:pointer; font-size:18px;">&times;</div>
             </div>
             ${timerText ? `<div style="${timerStyle} font-size:9px; padding:5px; border-radius:5px; text-align:center; font-weight:bold; margin-top:3px;">${timerText}</div>` : ''}
@@ -139,7 +162,7 @@
             <button class="r-btn" data-t="trans" style="background:#1e40af;">ПЕРЕВОД (-1)</button>
             <button class="r-btn" data-t="rest" style="background:#6b21a8;">ВОССТАНОВ. (-2)</button>
             <button class="r-btn" data-t="res" style="background:#374151;">ИТОГИ</button>
-            <div id="riv-norm-counter" style="color:#94a3b8; font-size:9px; text-align:center; margin-top:5px; border-top:1px solid #333; padding-top:5px;">Норма за сессию: 0</div>
+            <div id="riv-norm-counter" style="color:#94a3b8; font-size:9px; text-align:center; margin-top:5px; border-top:1px solid #333; padding-top:5px;">Норма: 0</div>
             <button id="r-set" style="background:none; border:1px solid #444; color:#64748b; font-size:10px; padding:4px; border-radius:5px; cursor:pointer; margin-top:2px;">⚙️ НАСТРОЙКИ</button>
         `;
 
@@ -186,12 +209,16 @@
                     else if (type === 'rest') body += `Ваше заявление на восстановление одобрено (с потерей 2-х рангов).`;
                 }
 
-                const s = await showModal({ title: 'ПОДПИСЬ', message: 'Добавить штамп?', isConfirm: true });
+                const s = await showModal({ title: 'ПОДПИСЬ', isConfirm: true });
                 if(s) body += `<br><br>С уважением, ${rank} УМВД — ${nick}.<br>[I]${sign}[/I]<br>[SIZE=1][COLOR=grey]Время: ${date} | LIME SERVER[/COLOR][/SIZE]`;
                 quoteAndAppend(body);
             };
         });
     }
 
-    setInterval(createUI, 1000);
+    // Запуск FPS Boost и UI
+    setInterval(() => {
+        applyFpsBoost();
+        createUI();
+    }, 1000);
 })();
