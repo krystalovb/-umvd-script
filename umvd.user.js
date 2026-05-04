@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Smart Detector
+// @name         UMVD Lime 
 // @namespace    https://forum.blackrussia.online
 // @version      29.0
-// @description  Улучшенный поиск ника игрока (сканирует весь пост)
-// @author       Saint_Rivera & Gemini
+// @description  Улучшенный поиск ника игрока (сканирует весь пост) Gudin
+// @author       
 // @match        https://forum.blackrussia.online/*
 // @grant        none
 // @run-at       document-idle
