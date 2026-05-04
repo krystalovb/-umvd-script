@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         UMVD ULTRA PRO MENU (FIXED)
+// @name         UMVD MODULAR HELPER (INTEGRATED)
 // @namespace    http://tampermonkey.net/
-// @version      8.0
-// @description  Исправленный помощник УМВД: работает в редакторе Froala
-// @author       Adaptive AI
+// @version      9.0
+// @description  Интегрированная панель УМВД прямо под редактором форума
+// @author       Gemini AI
 // @match        *://forum.blackrussia.online/*
 // @grant        none
 // ==/UserScript==
@@ -11,132 +11,119 @@
 (function () {
     'use strict';
 
-    // ===== ДАННЫЕ (LocalStorage) =====
+    // ===== ДАННЫЕ =====
     const getSettings = () => ({
         nick: localStorage.getItem("umvd_nick") || "Nick_Name",
-        rank: localStorage.getItem("umvd_rank") || "Полковник"
+        rank: localStorage.getItem("umvd_rank") || "Полковник",
+        gender: localStorage.getItem("umvd_gender") || "male" // для корректных окончаний (рассмотрел/рассмотрела)
     });
 
-    const setSettings = (nick, rank) => {
-        localStorage.setItem("umvd_nick", nick);
-        localStorage.setItem("umvd_rank", rank);
+    // ===== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour >= 4 && hour < 12) return "Доброе утро";
+        if (hour >= 12 && hour < 18) return "Добрый день";
+        if (hour >= 18 && hour < 23) return "Добрый вечер";
+        return "Доброй ночи";
     };
 
-    // ===== ФУНКЦИЯ ВСТАВКИ (FIXED FOR FROALA) =====
-    function insertText(text) {
-        // Ищем редактор Froala
-        const editor = document.querySelector('.fr-element.fr-view') || document.querySelector('.js-editor textarea');
-        
-        if (!editor) {
-            alert("Поле ввода не найдено. Нажмите 'Ответить', чтобы появился редактор.");
-            return;
-        }
-
-        // Если это Froala (див с текстом)
-        if (editor.tagName === 'DIV') {
-            editor.focus();
-            // Заменяем переносы строк на <p> или <br> для HTML редактора
-            const htmlText = text.replace(/\n/g, '<br>');
-            document.execCommand('insertHTML', false, htmlText);
-        } else {
-            // Если обычное текстовое поле
-            editor.value += text;
-        }
-    }
-
-    function getAuthor() {
+    const getAuthor = () => {
         const el = document.querySelector('.message-name .username');
-        return el ? el.innerText.trim() : "Игрок";
+        return el ? el.innerText.trim() : "Гражданин";
+    };
+
+    function insertToEditor(html) {
+        const editor = document.querySelector('.fr-element.fr-view');
+        if (editor) {
+            editor.focus();
+            document.execCommand('insertHTML', false, html);
+        } else {
+            alert("Сначала нажмите в поле ввода текста!");
+        }
     }
 
-    // ===== ШАБЛОН ОТВЕТА (ОБНОВЛЕННЫЙ УМВД) =====
-    function getTemplate(content) {
-        const {nick, rank} = getSettings();
+    // ===== ШАБЛОНЫ (НОВЫЙ ДИЗАЙН) =====
+    const buildMessage = (status, content) => {
+        const {nick, rank, gender} = getSettings();
+        const action = gender === "male" ? "рассмотрел" : "рассмотрела";
         const date = new Date().toLocaleDateString('ru-RU');
-        
+        const color = status === "ОДОБРЕНО" ? "rgb(0, 255, 127)" : "rgb(255, 69, 0)";
+
         return `[CENTER][COLOR=rgb(30, 144, 255)][B]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/B][/COLOR]
-[B][FONT=times new roman][SIZE=5]МИНИСТЕРСТВО ВНУТРЕННИХ ДЕЛ[/SIZE][/FONT][/B]
-[FONT=times new roman][SIZE=4]УПРАВЛЕНИЕ МВД ПО НИЖЕГОРОДСКОЙ ОБЛАСТИ[/SIZE][/FONT]
+[B][FONT=times new roman][SIZE=5]УМВД ПО НИЖЕГОРОДСКОЙ ОБЛАСТИ[/SIZE][/FONT][/B]
+[FONT=times new roman][SIZE=4]Официальный ответ руководства управления[/SIZE][/FONT]
 [COLOR=rgb(30, 144, 255)][B]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/B][/COLOR][/CENTER]
 
-[FONT=times new roman][SIZE=4]Здравия желаю!
+[FONT=times new roman][SIZE=4]Здравия желаю, уважаемый [B]${getAuthor()}[/B].
+${getGreeting()}! Я, ${rank} полиции [B]${nick}[/B], внимательно ${action} ваше заявление.
+
+[B]Вердикт:[/B] [COLOR=${color}][B]${status}[/B][/COLOR]
+
 ${content}[/SIZE][/FONT]
 
 [HR][/HR]
-[RIGHT][FONT=times new roman][SIZE=4]С уважением, [B]${rank} полиции[/B]
-[B]${nick}[/B]
-${date}[/SIZE][/FONT][/RIGHT]`;
-    }
-
-    // ===== UI ЭЛЕМЕНТЫ =====
-    const openBtn = document.createElement('div');
-    openBtn.innerHTML = "🚔";
-    openBtn.style = "position:fixed; right:20px; bottom:20px; z-index:10000; width:60px; height:60px; background:#1e90ff; color:#fff; display:flex; align-items:center; justify-content:center; border-radius:50%; cursor:pointer; font-size:30px; box-shadow:0 4px 15px rgba(0,0,0,0.5); transition: 0.3s;";
-    document.body.appendChild(openBtn);
-
-    const panel = document.createElement('div');
-    panel.style = "position:fixed; right:20px; bottom:90px; width:250px; background:#1c1c1c; border: 2px solid #1e90ff; padding:15px; border-radius:15px; display:none; z-index:10000; color:#fff; font-family: sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,0.7);";
-    document.body.appendChild(panel);
-
-    const title = document.createElement('div');
-    title.innerHTML = "<b style='color:#1e90ff'>УМВД HELPER</b><hr style='border:0.5px solid #333'>";
-    panel.appendChild(title);
-
-    function addBtn(text, action, color = "#2d2d2d") {
-        const btn = document.createElement('button');
-        btn.innerText = text;
-        btn.style = `width:100%; margin:5px 0; padding:10px; border:none; border-radius:8px; background:${color}; color:#fff; cursor:pointer; font-weight:bold; transition:0.2s;`;
-        btn.onmouseover = () => btn.style.opacity = "0.8";
-        btn.onmouseout = () => btn.style.opacity = "1";
-        btn.onclick = () => {
-            action();
-            // panel.style.display = "none"; // Можно раскомментировать, чтобы меню закрывалось после клика
-        };
-        panel.appendChild(btn);
-    }
-
-    // ===== КНОПКИ УПРАВЛЕНИЯ =====
-    openBtn.onclick = () => {
-        panel.style.display = panel.style.display === "none" ? "block" : "none";
+[RIGHT][FONT=times new roman][SIZE=4][B]Подпись:[/B] ${nick}
+[B]Дата:[/B] ${date}[/SIZE][/FONT][/RIGHT]`;
     };
 
-    addBtn("⚙️ Настройки", () => {
-        const nick = prompt("Введите ваш ник (Nick_Name):", getSettings().nick);
-        const rank = prompt("Введите вашу должность:", getSettings().rank);
-        if (nick && rank) setSettings(nick, rank);
-    }, "#3498db");
+    // ===== СОЗДАНИЕ ИНТЕРФЕЙСА (ПОД ПОЛЕМ ВВОДА) =====
+    function injectPanel() {
+        if (document.getElementById('umvd-integrated-panel')) return;
 
-    addBtn("👤 Упомянуть", () => {
-        insertText(`@${getAuthor()}, `);
-    }, "#16a085");
+        const editorFooter = document.querySelector('.xf-formButtons'); // Панель с кнопками "Ответить"
+        if (!editorFooter) return;
 
-    addBtn("✅ Одобрено", () => {
-        insertText(getTemplate("Ваше заявление было рассмотрено и получило статус: [COLOR=rgb(0, 255, 127)][B]ОДОБРЕНО[/B][/COLOR]."));
-    }, "#27ae60");
+        const panel = document.createElement('div');
+        panel.id = 'umvd-integrated-panel';
+        panel.style = `
+            background: #1a1a1a;
+            border: 1px solid #1e90ff;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 8px;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        `;
 
-    addBtn("❌ Отказано", () => {
-        const reason = prompt("Причина отказа:", "Не соответствует критериям.");
-        if (reason) insertText(getTemplate(`Ваше заявление было рассмотрено и получило статус: [COLOR=rgb(255, 69, 0)][B]ОТКАЗАНО[/B][/COLOR].\n[B]Причина:[/B] ${reason}`));
-    }, "#e74c3c");
+        const buttons = [
+            { name: "✅ Одобрить", color: "#27ae60", act: () => insertToEditor(buildMessage("ОДОБРЕНО", "Ваше заявление составлено корректно. Ожидаем вас в здании УМВД.")) },
+            { name: "❌ Отказать", color: "#c0392b", act: () => {
+                const r = prompt("Причина отказа:");
+                if(r) insertToEditor(buildMessage("ОТКАЗАНО", `Причина: [B]${r}[/B]`));
+            }},
+            { name: "⏳ Рассмотрение", color: "#f39c12", act: () => insertToEditor(buildMessage("НА РАССМОТРЕНИИ", "Ваши данные проверяются по базе МВД. Ожидайте ответа в этой теме.")) },
+            { name: "🚔 Перевод", color: "#2980b9", act: () => insertToEditor(buildMessage("ОДОБРЕНО", "Перевод одобрен. Сохраните скриншот данного ответа для предъявления при вступлении.")) },
+            { name: "📜 Правила", color: "#8e44ad", act: () => insertToEditor("[B]Вам отказано.[/B] Нарушены правила подачи (заявление не по форме / нет /time).") },
+            { name: "⚙️ Настройки", color: "#444", act: () => {
+                const n = prompt("Ваш Ник (Имя_Фамилия):", getSettings().nick);
+                const r = prompt("Ваш Ранг (напр. Капитан):", getSettings().rank);
+                const g = confirm("Ваш пол Мужской? (ОК - Да, Отмена - Женский)") ? "male" : "female";
+                if(n && r) {
+                    localStorage.setItem("umvd_nick", n);
+                    localStorage.setItem("umvd_rank", r);
+                    localStorage.setItem("umvd_gender", g);
+                    location.reload();
+                }
+            }}
+        ];
 
-    addBtn("⏳ На рассмотрении", () => {
-        insertText(getTemplate("Ваше заявление находится в статусе: [COLOR=rgb(241, 196, 15)][B]НА РАССМОТРЕНИИ[/B][/COLOR]. Ожидайте вердикта."));
-    }, "#f1c40f");
+        buttons.forEach(b => {
+            const btn = document.createElement('button');
+            btn.innerText = b.name;
+            btn.type = "button";
+            btn.style = `background:${b.color}; color:white; border:none; padding:8px; border-radius:5px; cursor:pointer; font-weight:bold; font-size:12px; transition:0.2s;`;
+            btn.onmouseover = () => btn.style.filter = "brightness(1.2)";
+            btn.onmouseout = () => btn.style.filter = "none";
+            btn.onclick = b.act;
+            panel.appendChild(btn);
+        });
 
-    addBtn("📌 Кандидаты СС", () => {
-        let input = prompt("Ники через запятую:");
-        if (!input) return;
-        let list = input.split(",").map((n, i) => `[B]${i + 1}.[/B] ${n.trim()}`).join("\n");
-        insertText(getTemplate(`Кандидаты, допущенные к обзвону:\n\n${list}\n\n[I]Время обзвона будет сообщено дополнительно.[/I]`));
-    }, "#d35400");
+        editorFooter.parentNode.insertBefore(panel, editorFooter);
+    }
 
-    addBtn("🧹 Очистить", () => {
-        const editor = document.querySelector('.fr-element.fr-view');
-        if (editor) editor.innerHTML = "";
-    }, "#7f8c8d");
-
-    addBtn("Закрыть ✖", () => {
-        panel.style.display = "none";
-    }, "#444");
+    // Запуск проверки наличия редактора каждые 2 секунды (т.к. он может подгрузиться позже)
+    setInterval(injectPanel, 2000);
 
 })();
