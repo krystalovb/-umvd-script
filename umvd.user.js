@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Liquid Island
+// @name         UMVD Rivera Lime - Liquid Island PRO
 // @namespace    https://forum.blackrussia.online
-// @version      38.0
-// @description  Дизайн в стиле Liquid Island, гибкие итоги и полицейский таймер
+// @version      39.0
+// @description  Исправлены теги шрифтов в итогах + Liquid Island дизайн
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -169,10 +169,11 @@
 
                 if (type === 'res') {
                     const customTitle = await showModal({ title: 'ЗАГОЛОВОК ИТОГОВ', inputPlaceholder: 'ИТОГИ ПРОВЕРКИ ЗАЯВЛЕНИЙ' });
-                    const okList = await showModal({ title: 'ОДОБРЕНО', message: 'Введите ники через <br>:', isTextArea: true });
+                    const okList = await showModal({ title: 'ОДОБРЕНО', message: 'Введите ники через перенос строки:', isTextArea: true });
                     const noList = await showModal({ title: 'ОТКАЗАНО', message: 'Введите причины:', isTextArea: true });
                     const finalTitle = customTitle || "ИТОГИ ПРОВЕРКИ ЗАЯВЛЕНИЙ";
-                    body = `[CENTER][B][SIZE=5][COLOR=rgb(30, 144, 255)]${finalTitle}[/COLOR][/SIZE][/B]<br><br>[LEFT][COLOR=rgb(34, 197, 94)]ОДОБРЕНО:[/COLOR]<br>${okList || '-'}<br><br>[COLOR=rgb(239, 68, 68)]ОТКАЗАНО:[/COLOR]<br>${noList || '-'}[/LEFT]`;
+                    
+                    body = `[CENTER][FONT=Times New Roman][B][SIZE=5][COLOR=rgb(30, 144, 255)]${finalTitle}[/COLOR][/SIZE][/B]<br><br>[LEFT][COLOR=rgb(34, 197, 94)]ОДОБРЕНО:[/COLOR]<br>${okList || '-'}<br><br>[COLOR=rgb(239, 68, 68)]ОТКАЗАНО:[/COLOR]<br>${noList || '-'}[/LEFT]`;
                 } else {
                     const pNick = await showModal({ title: 'НИК ИГРОКА', inputPlaceholder: 'Nick_Name' });
                     if(!pNick) return;
