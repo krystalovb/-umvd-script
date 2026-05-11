@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Liquid Island PRO
+// @name         UMVD Rivera Lime - Liquid Island Final
 // @namespace    https://forum.blackrussia.online
-// @version      39.0
-// @description  Исправлены теги шрифтов в итогах + Liquid Island дизайн
+// @version      40.0
+// @description  Свои ответы в одобрялках/отказах + фикс тегов
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -14,7 +14,7 @@
 
     const RANKS = ["Рядовой", "Сержант", "Старший Сержант", "Прапорщик", "Лейтенант", "Старший Лейтенант", "Капитан", "Майор", "Подполковник", "Полковник"];
     const REASONS = ["Свой ответ", "Отсутствие военного билета.", "Скриншоты без /time.", "Скриншотам более 3-х дней.", "Не по форме / нечитаемый шрифт.", "Низкая законопослушность (менее 30).", "Опечатка в паспорте (NonRP Nick).", "Битые ссылки."];
-    const APPROVE_TYPES = ["Обычное одобрение", "Заявка на Сержанта [3]", "Повышение в звании", "Снятие выговора", "Перевод", "Восстановление"];
+    const APPROVE_TYPES = ["Обычное одобрение", "Свой ответ", "Заявка на Сержанта [3]", "Повышение в звании", "Снятие выговора", "Перевод", "Восстановление"];
 
     const getSetting = (key, def) => localStorage.getItem(key) || def;
 
@@ -172,8 +172,7 @@
                     const okList = await showModal({ title: 'ОДОБРЕНО', message: 'Введите ники через перенос строки:', isTextArea: true });
                     const noList = await showModal({ title: 'ОТКАЗАНО', message: 'Введите причины:', isTextArea: true });
                     const finalTitle = customTitle || "ИТОГИ ПРОВЕРКИ ЗАЯВЛЕНИЙ";
-                    
-                    body = `[CENTER][FONT=Times New Roman][B][SIZE=5][COLOR=rgb(30, 144, 255)]${finalTitle}[/COLOR][/SIZE][/B]<br><br>[LEFT][COLOR=rgb(34, 197, 94)]ОДОБРЕНО:[/COLOR]<br>${okList || '-'}<br><br>[COLOR=rgb(239, 68, 68)]ОТКАЗАНО:[/COLOR]<br>${noList || '-'}[/LEFT]`;
+                    body = `[CENTER][FONT=Times New Roman][B][SIZE=5][COLOR=rgb(30, 144, 255)]${finalTitle}[/COLOR][/SIZE][/B]<br><br>[LEFT][COLOR=rgb(34, 197, 94)]ОДОБРЕНО:[/COLOR]<br>${okList || '-'}<br><br>[COLOR=rgb(239, 68, 68)]ОТКАЗАНО:[/COLOR]<br>${noList || '-'}[/LEFT][/FONT][/CENTER]`;
                 } else {
                     const pNick = await showModal({ title: 'НИК ИГРОКА', inputPlaceholder: 'Nick_Name' });
                     if(!pNick) return;
@@ -181,13 +180,20 @@
                     body = `[CENTER][FONT=Times New Roman]Здравия желаю, уважаемый(-ая) [B]${pNick}[/B].<br><br>`;
                     
                     if (type === 'ok') {
-                        const subType = await showModal({ title: 'ВЕРДИКТ', options: APPROVE_TYPES });
+                        let subType = await showModal({ title: 'ВЕРДИКТ', options: APPROVE_TYPES });
                         if(!subType) return;
-                        body += `Ваше заявление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
+                        if(subType === "Свой ответ") {
+                            subType = await showModal({ title: 'СВОЙ ТЕКСТ ОДОБРЕНИЯ', isTextArea: true });
+                            body += `${subType}`;
+                        } else {
+                            body += `Ваше заявление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
+                        }
                     } else if (type === 'no') {
                         let rsn = await showModal({ title: 'ПРИЧИНА', options: REASONS });
                         if(!rsn) return;
-                        if(rsn === "Свой ответ") rsn = await showModal({ title: 'СВОЯ ПРИЧИНА', isTextArea: true });
+                        if(rsn === "Свой ответ") {
+                            rsn = await showModal({ title: 'СВОЯ ПРИЧИНА', isTextArea: true });
+                        }
                         body += `Ваше заявление: [COLOR=rgb(239, 68, 68)][B]ОТКАЗАНО[/B][/COLOR].<br>Причина: ${rsn}`;
                     }
                 }
