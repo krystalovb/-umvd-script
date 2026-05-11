@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         UMVD Rivera Lime - Liquid Island Final
+// @name         UMVD Rivera Lime - Liquid Island Slim PRO
 // @namespace    https://forum.blackrussia.online
-// @version      40.0
-// @description  Свои ответы в одобрялках/отказах + фикс тегов
+// @version      42.0
+// @description  Фикс отступов + Авто-вердикт в своем ответе
 // @author       Saint_Rivera & Gemini
 // @match        https://forum.blackrussia.online/*
 // @grant        none
@@ -98,13 +98,13 @@
         const editor = document.querySelector('.fr-element.fr-view');
         if (editor) {
             editor.focus();
-            const range = document.createRange();
             const sel = window.getSelection();
+            const range = document.createRange();
             range.selectNodeContents(editor);
             range.collapse(false);
             sel.removeAllRanges();
             sel.addRange(range);
-            document.execCommand('insertHTML', false, '<br>' + html);
+            document.execCommand('insertHTML', false, html);
         }
     }
 
@@ -183,8 +183,8 @@
                         let subType = await showModal({ title: 'ВЕРДИКТ', options: APPROVE_TYPES });
                         if(!subType) return;
                         if(subType === "Свой ответ") {
-                            subType = await showModal({ title: 'СВОЙ ТЕКСТ ОДОБРЕНИЯ', isTextArea: true });
-                            body += `${subType}`;
+                            const ownOk = await showModal({ title: 'СВОЙ ТЕКСТ ОДОБРЕНИЯ', isTextArea: true });
+                            body += `Ваше заявление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].<br>${ownOk}`;
                         } else {
                             body += `Ваше заявление: [COLOR=rgb(34, 197, 94)][B]ОДОБРЕНО[/B][/COLOR].`;
                         }
